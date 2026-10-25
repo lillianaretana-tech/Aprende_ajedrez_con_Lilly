@@ -237,6 +237,28 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
 #rvBody .bar { color: var(--accent); margin-top: 10px; }
 .opmoves { font-family: var(--mono); font-size: 12.5px; margin: -4px 0 0; min-height: 1.4em; }
 
+/* Reloj, analizar */
+.seg.wrap { flex-wrap: wrap; }
+.clk { font-family: var(--mono); font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 3px 9px; border-radius: 9px; background: var(--surface2); border: 1px solid var(--line); }
+.clk.run { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.clk.low { color: var(--bad); border-color: var(--bad); }
+.evalbar { height: 10px; border-radius: 9px; background: #1b2623; overflow: hidden; border: 1px solid var(--line); }
+.evalbar i { display: block; height: 100%; width: 50%; background: #fff; transition: width .3s; }
+.evaltxt { display: flex; align-items: baseline; gap: 10px; margin-top: -6px; }
+.evaltxt b { font-family: var(--mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.evaltxt span { font-size: 13px; color: var(--muted); }
+.navs .btn { min-width: 0; flex: 1 1 0; padding-inline: 4px; font-size: 18px; }
+.navs .btn:last-child { font-size: 14.5px; flex: 1.5 1 0; }
+.moves button { flex: none; font-family: var(--mono); font-size: 13px; padding: 4px 8px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); }
+.moves button.cur { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.inp { width: 100%; font: inherit; font-family: var(--mono); font-size: 13px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface2); color: var(--ink); margin: 6px 0 10px; }
+.anrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; min-height: 52px; }
+.anrow .ev { font-family: var(--mono); font-weight: 600; min-width: 56px; font-variant-numeric: tabular-nums; }
+.anrow .mv { font-weight: 700; }
+.anrow small { display: block; color: var(--muted); font-size: 12.5px; font-weight: 400; font-family: var(--mono); }
+.anrow.best { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.gsec { margin-top: 10px; }
+
 </style>
 
 <div id="app">
@@ -360,6 +382,17 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
             <button type="button" class="opt on" data-v="1"><b>Principiante</b><span>Se equivoca seguido y a veces regala piezas.</span></button>
             <button type="button" class="opt" data-v="2"><b>Aprendiz</b><span>Juega sólido pero no ve jugadas largas.</span></button>
             <button type="button" class="opt" data-v="3"><b>Retador</b><span>Calcula varias jugadas. Cuesta ganarle.</span></button>
+            <button type="button" class="opt" data-v="4"><b>Experto</b><span>Calcula a fondo y piensa unos 2,5 segundos por jugada. Es el más fuerte.</span></button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Reloj</span>
+          <div class="seg wrap" id="segClock">
+            <button type="button" data-v="none" class="on">Sin reloj</button>
+            <button type="button" data-v="3+0">3 min</button>
+            <button type="button" data-v="5+0">5 min</button>
+            <button type="button" data-v="10+0">10 min</button>
+            <button type="button" data-v="15+10">15+10</button>
           </div>
         </div>
         <label class="switch" for="coachOn">
@@ -371,9 +404,9 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
       </div>
 
       <div id="game" class="view" hidden>
-        <div class="pbar"><span class="who" id="topWho">Rival</span><span class="caps" id="topCaps"></span><span class="mat" id="topMat"></span></div>
+        <div class="pbar"><span class="who" id="topWho">Rival</span><span class="clk" id="topClk" hidden></span><span class="caps" id="topCaps"></span><span class="mat" id="topMat"></span></div>
         <div class="board-wrap"><div id="gBoard"></div></div>
-        <div class="pbar"><span class="who">Tú</span><span class="caps" id="botCaps"></span><span class="mat" id="botMat"></span><span class="think" id="think"></span></div>
+        <div class="pbar"><span class="who">Tú</span><span class="clk" id="botClk" hidden></span><span class="caps" id="botCaps"></span><span class="mat" id="botMat"></span><span class="think" id="think"></span></div>
         <div class="coach" id="gCoach" aria-live="polite"></div>
         <div class="card over" id="over" hidden></div>
         <div class="actions">
@@ -387,6 +420,51 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
           <div class="body"><ol id="coachLog"></ol></div>
         </details>
       </div>
+    </section>
+
+    <!-- Analizar -->
+    <section id="v-analyze" class="view" hidden>
+      <h2>Analizar</h2>
+      <p class="lead">Mueve las piezas de los dos bandos, carga una posición o revisa una partida. El motor te muestra las mejores jugadas.</p>
+      <div class="board-wrap"><div id="anBoard"></div></div>
+      <div class="evalbar" aria-hidden="true"><i id="anBar"></i></div>
+      <div class="evaltxt"><b id="anEval">–</b><span id="anInfo"></span></div>
+      <div class="actions navs">
+        <button class="btn" id="anFirst" type="button" aria-label="Inicio">&laquo;</button>
+        <button class="btn" id="anPrev" type="button" aria-label="Jugada anterior">&lsaquo;</button>
+        <button class="btn" id="anNext" type="button" aria-label="Jugada siguiente">&rsaquo;</button>
+        <button class="btn" id="anLast" type="button" aria-label="Final">&raquo;</button>
+        <button class="btn" id="anFlip" type="button">Girar</button>
+      </div>
+      <div class="moves" id="anMoves" aria-label="Jugadas"></div>
+      <div class="field">
+        <span class="label">Tiempo de análisis</span>
+        <div class="seg" id="anTime">
+          <button type="button" data-v="2000" class="on">2 s</button>
+          <button type="button" data-v="5000">5 s</button>
+          <button type="button" data-v="12000">12 s</button>
+        </div>
+      </div>
+      <button class="btn primary big" id="anRun" type="button">Analizar esta posición</button>
+      <div id="anRes" class="view"></div>
+      <details class="card">
+        <summary>Cargar y exportar</summary>
+        <div class="body">
+          <label class="label" for="anFenIn">Posición (FEN)</label>
+          <input id="anFenIn" class="inp" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Pega aquí un FEN">
+          <div class="actions">
+            <button class="btn" id="anLoad" type="button">Cargar FEN</button>
+            <button class="btn" id="anStart" type="button">Posición inicial</button>
+          </div>
+          <p class="muted" id="anMsg"></p>
+          <label class="label" for="anPgn">PGN de la partida</label>
+          <textarea id="anPgn" class="inp" rows="5" readonly></textarea>
+          <div class="actions">
+            <button class="btn" id="anCopyFen" type="button">Copiar FEN</button>
+            <button class="btn" id="anCopyPgn" type="button">Copiar PGN</button>
+          </div>
+        </div>
+      </details>
     </section>
 
     <!-- Guía -->
@@ -460,6 +538,113 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
           </ul>
         </div>
       </details>
+
+      <h2 class="gsec">Para jugar mejor</h2>
+      <p class="lead">Temas más avanzados para consultar cuando ya domines lo básico.</p>
+
+      <details class="card">
+        <summary>Método de pensamiento antes de cada jugada</summary>
+        <div class="body">
+          <ol>
+            <li><b>¿Qué quiere hacer el rival?</b> Mira su última jugada: qué ataca, qué abre, qué amenaza.</li>
+            <li><b>Revisa jaques, capturas y amenazas</b>, tuyos y del rival, en ese orden. Casi todas las tácticas empiezan por ahí.</li>
+            <li><b>Elige 2 o 3 candidatas</b> y calcula cada una hasta una posición tranquila. No saltes de una variante a otra sin terminar.</li>
+            <li><b>Antes de mover, comprueba</b> que la pieza que mueves no deje otra sin defensa y que no haya un jaque o captura del rival que te refute.</li>
+            <li>Si no hay táctica, mejora tu pieza peor colocada.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Motivos tácticos</summary>
+        <div class="body">
+          <ul>
+            <li><b>Horquilla (ataque doble):</b> una pieza ataca dos a la vez. Los caballos y los peones son los mejores para esto.</li>
+            <li><b>Clavada:</b> una pieza no puede moverse porque dejaría expuesta otra de más valor (relativa) o el rey (absoluta). Ataca la pieza clavada con peones.</li>
+            <li><b>Ataque descubierto:</b> al mover una pieza se abre la línea de otra. Si la pieza que se mueve da jaque, es doble ataque.</li>
+            <li><b>Rayos X:</b> una pieza de largo alcance actúa a través de otra, por ejemplo una torre que ataca por detrás de la dama rival.</li>
+            <li><b>Desviación y atracción:</b> obligas a una pieza defensora a irse o la atraes a una casilla donde recibe jaque o captura.</li>
+            <li><b>Eliminar al defensor:</b> capturas la pieza que protege a otra y luego te llevas la que quedó sin defensa.</li>
+            <li><b>Jaque continuo:</b> si estás peor, busca una serie de jaques que el rey no pueda evitar para lograr tablas.</li>
+            <li><b>Mate del pasillo:</b> el rey enrocado con tres peones sin avanzar puede quedar atrapado por una torre en la primera fila. Haz una luz (mueve un peón) cuando haya riesgo.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Ideas de estrategia</summary>
+        <div class="body">
+          <ul>
+            <li><b>Centro:</b> controlarlo da espacio y movilidad a tus piezas. Se controla con peones y con piezas, no solo ocupándolo.</li>
+            <li><b>Casillas débiles:</b> una casilla que ya no puede defenderse con peones es un puesto ideal para tu caballo (un “puesto avanzado”).</li>
+            <li><b>Columnas abiertas y séptima fila:</b> pon la torre en una columna abierta; una torre en la séptima fila ataca peones y encierra al rey.</li>
+            <li><b>Pareja de alfiles:</b> gana valor en posiciones abiertas. Los caballos prefieren posiciones cerradas.</li>
+            <li><b>Alfil bueno y malo:</b> un alfil con tus peones en casillas de su mismo color queda bloqueado. Cambia el malo o sácalo fuera de la cadena de peones.</li>
+            <li><b>Estructura de peones:</b> evita peones aislados, doblados y retrasados; un peón pasado (sin peones rivales delante ni en columnas contiguas) es una ventaja a largo plazo.</li>
+            <li><b>Cuándo cambiar piezas:</b> cuando vas ganando material, cambia; cuando vas perdiendo, evita cambios. Cambia las piezas defensoras del rey rival si atacas.</li>
+            <li><b>Seguridad del rey:</b> el enroque, los peones delante del rey y las piezas defensoras cerca. Antes de atacar, comprueba que tu propio rey esté seguro.</li>
+            <li><b>Profilaxis:</b> pregúntate qué quiere hacer el rival y evita su mejor plan antes de seguir con el tuyo.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Finales: reglas y técnicas clave</summary>
+        <div class="body">
+          <ul>
+            <li><b>Oposición:</b> los reyes se enfrentan con una casilla en medio. Quien <i>no</i> tiene que mover tiene la oposición y obliga al otro a ceder el paso.</li>
+            <li><b>Casillas clave:</b> si tu rey llega a una de ellas, el peón corona. Con un peón en e4 o e5, son d6, e6 y f6. Con peón de torre no vale: el defensor se refugia en la esquina y son tablas.</li>
+            <li><b>Regla del cuadrado:</b> dibuja un cuadrado desde el peón hasta su casilla de coronación. Si el rey rival puede entrar en él al mover, alcanza al peón.</li>
+            <li><b>Zugzwang:</b> estar obligado a mover es una desventaja. Es el motivo de la oposición y de muchas posiciones de final.</li>
+            <li><b>Triangulación:</b> el rey pierde un tiempo dando un rodeo de tres casillas para pasarle el turno al rival.</li>
+            <li><b>Torres:</b> coloca la torre detrás del peón pasado, tuyo o rival. Una torre activa vale más que un peón.</li>
+            <li><b>Posición de Lucena:</b> ganas con torre y peón en la séptima si tu rey está frente al peón y el rey rival está cortado. Se construye un “puente” con la torre en la cuarta fila.</li>
+            <li><b>Posición de Philidor:</b> para tablas con torre contra torre y peón, el defensor pone la torre en su tercera fila (impide que el rey rival avance) y cuando el peón llega a ella, pasa a dar jaques desde atrás.</li>
+            <li><b>Alfiles de colores distintos:</b> suelen ser tablas aunque tengas un peón de ventaja.</li>
+            <li><b>Dama contra peón en la séptima:</b> casi siempre gana la dama, salvo con peón de torre o de alfil si el rey defensor está cerca.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Familias de aperturas</summary>
+        <div class="body">
+          <ul>
+            <li><b>Juego abierto (1.e4 e5):</b> Italiana, Española (Ruy López), Escocesa. Juego táctico y rápido.</li>
+            <li><b>Defensas semiabiertas (1.e4 c5 / e6 / c6):</b> Siciliana, Francesa, Caro-Kann. El negro busca desequilibrar o un montaje sólido.</li>
+            <li><b>Juego cerrado (1.d4 d5):</b> Gambito de dama, Sistema Londres. Estructuras más estratégicas y planes largos.</li>
+            <li><b>Defensas indias (1.d4 Nf6):</b> India de Rey, Nimzoíndia. El negro deja el centro al blanco para atacarlo después.</li>
+            <li><b>Principio común:</b> aprende las ideas, no solo las jugadas. Si el rival se desvía, aplica los principios: centro, desarrollo y rey a salvo.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Reglas y términos útiles</summary>
+        <div class="body">
+          <ul>
+            <li><b>Tablas:</b> ahogado, acuerdo, repetición de la misma posición tres veces, 50 jugadas sin captura ni movimiento de peón y material insuficiente para dar mate.</li>
+            <li><b>Enroque:</b> el rey y la torre no se han movido, no hay piezas entre ellos y el rey no está en jaque ni cruza ni termina en casilla atacada.</li>
+            <li><b>Captura al paso:</b> solo en la jugada inmediata, cuando un peón avanza dos casillas junto a un peón rival.</li>
+            <li><b>Reloj:</b> si se agota tu tiempo pierdes, salvo que el rival no pueda dar mate con el material que tiene. Con incremento (por ejemplo 15+10) ganas segundos en cada jugada.</li>
+            <li><b>FEN:</b> texto que describe una posición. <b>PGN:</b> texto que guarda una partida completa. Los dos se pueden copiar y pegar en la pestaña Analizar.</li>
+            <li><b>Evaluación:</b> +1,0 equivale a un peón de ventaja para las blancas; −1,0 a uno para las negras. #3 significa mate en 3 jugadas.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Cómo mejorar con esta app</summary>
+        <div class="body">
+          <ol>
+            <li>Cada día, el entrenamiento de Tácticas (5 problemas). Es lo que más rápido sube el nivel.</li>
+            <li>Juega partidas largas y revísalas con “Revisar mi partida” o con el motor en Analizar.</li>
+            <li>Estudia un final por semana hasta que lo ejecutes sin pistas.</li>
+            <li>Aprende dos aperturas, una con blancas y otra con negras, y aplícalas en tus partidas.</li>
+            <li>Al analizar, intenta primero encontrar la mejor jugada tú mismo y solo después consulta al motor.</li>
+          </ol>
+        </div>
+      </details>
     </section>
   </main>
 
@@ -473,6 +658,9 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
       </button>
       <button type="button" data-tab="play">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5 3.5-5 3.5z"/></svg>Jugar
+      </button>
+      <button type="button" data-tab="analyze">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>Analizar
       </button>
       <button type="button" data-tab="guide">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></svg>Guía
@@ -1817,6 +2005,7 @@ var TABS = {
   learn: 'Aprende jugando',
   tact: 'Entrena tu vista táctica',
   play: 'Practica con entrenador',
+  analyze: 'Analiza posiciones y partidas',
   guide: 'Consulta rápida'
 };
 
@@ -2034,13 +2223,70 @@ function leaveLesson() {
 }
 
 /* ---------- Jugar: partida contra el rival con entrenador ---------- */
-var CFG = { color: 'w', level: 1 };
-var LVN = { 1: 'Principiante', 2: 'Aprendiz', 3: 'Retador' };
+var CFG = { color: 'w', level: 1, clock: 'none' };
+var LVN = { 1: 'Principiante', 2: 'Aprendiz', 3: 'Retador', 4: 'Experto' };
+var CLOCKS = { none: null, '3+0': { m: 3, inc: 0 }, '5+0': { m: 5, inc: 0 }, '10+0': { m: 10, inc: 0 }, '15+10': { m: 15, inc: 10 } };
 var GM = {
   g: null, color: 'w', level: 1, coachOn: true, sel: -1, busy: false, pending: false, over: false,
   last: null, pop: -1, hint: null, hints: 0, feedUser: [], feed: [], notice: null, log: [], token: 0,
-  board: null, warn: null, resignArm: false, resignTimer: 0
+  board: null, warn: null, resignArm: false, resignTimer: 0, clk: null, clkTimer: 0
 };
+
+
+/* ---------- Reloj ---------- */
+function fmtClock(ms) {
+  if (ms < 0) ms = 0;
+  var s = Math.ceil(ms / 1000), m = Math.floor(s / 60);
+  if (ms < 10000 && ms > 0) return '0:' + (ms / 1000).toFixed(1).padStart(4, '0');
+  return m + ':' + String(s % 60).padStart(2, '0');
+}
+function clockLeft(c) {
+  var l = { w: GM.clk.w, b: GM.clk.b };
+  if (GM.clk.run) l[GM.clk.run] -= Date.now() - GM.clk.t0;
+  return l[c];
+}
+function drawClocks() {
+  if (!GM.clk) { $('topClk').hidden = true; $('botClk').hidden = true; return; }
+  var opp = R.other(GM.color);
+  $('topClk').hidden = false; $('botClk').hidden = false;
+  $('topClk').textContent = fmtClock(clockLeft(opp));
+  $('botClk').textContent = fmtClock(clockLeft(GM.color));
+  $('topClk').classList.toggle('low', clockLeft(opp) < 30000);
+  $('botClk').classList.toggle('low', clockLeft(GM.color) < 30000);
+  $('topClk').classList.toggle('run', GM.clk.run === opp);
+  $('botClk').classList.toggle('run', GM.clk.run === GM.color);
+}
+function clockStop() {
+  clearInterval(GM.clkTimer);
+  if (GM.clk && GM.clk.run) { GM.clk[GM.clk.run] -= Date.now() - GM.clk.t0; GM.clk.run = null; }
+}
+function clockStart(cfg) {
+  clearInterval(GM.clkTimer);
+  GM.clk = null;
+  if (!cfg) { drawClocks(); return; }
+  GM.clk = { w: cfg.m * 60000, b: cfg.m * 60000, inc: cfg.inc * 1000, run: 'w', t0: Date.now() };
+  GM.clkTimer = setInterval(clockTick, 200);
+  drawClocks();
+}
+// Tras mover el bando "by": se descuenta su tiempo, se suma el incremento y corre el del otro
+function clockSwitch(by) {
+  if (!GM.clk || GM.over) return;
+  var now = Date.now();
+  GM.clk[by] += GM.clk.inc - (now - GM.clk.t0);
+  GM.clk.run = R.other(by); GM.clk.t0 = now;
+  drawClocks();
+}
+function clockTick() {
+  if (!GM.clk || GM.over || !GM.clk.run) return;
+  drawClocks();
+  var who = GM.clk.run;
+  if (clockLeft(who) <= 0) {
+    GM.token++; GM.busy = false; GM.pending = false;
+    $('think').textContent = '';
+    if (who === GM.color) endGame('l', 'Se acabó tu tiempo', 'Perdiste por tiempo. Cuando vayas justo de reloj, juega más rápido las jugadas obvias y reserva el tiempo para las críticas.');
+    else endGame('w', '¡Ganaste por tiempo!', 'Al rival se le acabó el reloj.');
+  }
+}
 
 function canPlay() { return !!GM.g && !GM.over && !GM.busy && !GM.pending && GM.g.s.turn === GM.color; }
 
@@ -2081,7 +2327,8 @@ function drawGame() {
   $('moveList').scrollLeft = 99999;
 
   $('gHint').disabled = !canPlay();
-  $('gUndo').disabled = GM.over || GM.busy || userPlies() === 0;
+  $('gUndo').disabled = GM.over || GM.busy || userPlies() === 0 || !!GM.clk;
+  drawClocks();
   $('gResign').disabled = GM.over;
 }
 
@@ -2118,6 +2365,7 @@ function startGame() {
   $('think').textContent = '';
   $('setup').hidden = true; $('game').hidden = false; $('over').hidden = true;
   $('topWho').textContent = 'Rival · ' + LVN[GM.level];
+  clockStart(CLOCKS[CFG.clock]);
   $('coachLog').innerHTML = '<li>Aún no hay comentarios.</li>';
   $('topSub').textContent = 'Partida · ' + (color === 'w' ? 'blancas' : 'negras');
   var intro = color === 'w'
@@ -2132,6 +2380,7 @@ function startGame() {
 
 function toSetup() {
   GM.token++;
+  clockStop(); GM.clk = null;
   GM.busy = false; GM.pending = false;
   $('think').textContent = '';
   $('game').hidden = true; $('setup').hidden = false;
@@ -2160,6 +2409,7 @@ function gameMove(m) {
   GM.g.play(m);
   var nextS = GM.g.s;
   GM.sel = -1; GM.last = { from: m.from, to: m.to }; GM.pop = m.to; GM.hint = null; GM.warn = null; GM.notice = null;
+  clockSwitch(GM.color);
 
   var items = [];
   if (GM.coachOn) {
@@ -2201,6 +2451,7 @@ function aiTurn() {
       $('think').textContent = '';
       if (!m) { checkEnd(); return; }
       var san = GM.g.play(m), nextS = GM.g.s;
+      clockSwitch(R.other(GM.color));
       GM.last = { from: m.from, to: m.to }; GM.pop = m.to; GM.sel = -1; GM.warn = null; GM.notice = null;
       var items = GM.feedUser.slice(), extra = [];
       if (GM.coachOn) {
@@ -2230,6 +2481,7 @@ function undoMove() {
   var lm = GM.g.moves[GM.g.moves.length - 1];
   GM.last = lm ? { from: lm.from, to: lm.to } : null;
   GM.sel = -1; GM.hint = null; GM.warn = null; GM.notice = null; GM.feedUser = [];
+  if (GM.clk) { GM.clk.run = GM.color; GM.clk.t0 = Date.now(); }
   $('think').textContent = '';
   setFeed([{ k: 'tip', who: 'Entrenador', t: 'Jugada deshecha. Antes de mover mira: ¿qué pieza tuya está en peligro y cuál del rival está sin defensa?' }]);
   drawGame();
@@ -2298,20 +2550,24 @@ function checkEnd() {
 }
 
 function endGame(outcome, title, blurb) {
+  clockStop();
   GM.over = true; GM.busy = false; GM.pending = false; GM.hint = null; GM.sel = -1;
+  GM.result = outcome === 'd' ? '1/2-1/2' : (outcome === 'w') === (GM.color === 'w') ? '1-0' : '0-1';
   prog.games[outcome]++;
   saveProg();
   var s = GM.g.s, lost = Coach.lost(s), opp = R.other(GM.color);
   var html = '<h3>' + esc(title) + '</h3><p>' + esc(blurb) + '</p><div class="stats"><span>' + Math.ceil(GM.g.moves.length / 2) + ' jugadas</span><span>capturaste ' +
     lost[opp].length + '</span><span>perdiste ' + lost[GM.color].length + '</span><span>' + GM.hints + ' pistas</span></div>' +
     '<div class="actions"><button class="btn primary" type="button" id="ovAgain">Revancha</button><button class="btn" type="button" id="ovNew">Cambiar ajustes</button></div>' +
-    (GM.g.moves.length >= 6 ? '<button class="btn big" type="button" id="ovReview">Revisar mi partida</button>' : '');
+    (GM.g.moves.length >= 6 ? '<button class="btn big" type="button" id="ovReview">Revisar mi partida</button>' : '') +
+    (GM.g.moves.length >= 1 ? '<button class="btn big" type="button" id="ovAnalyze">Analizar con el motor</button>' : '');
   var ov = $('over');
   ov.innerHTML = html;
   ov.hidden = false;
   $('ovAgain').addEventListener('click', startGame);
   $('ovNew').addEventListener('click', toSetup);
   if ($('ovReview')) $('ovReview').addEventListener('click', startReview);
+  if ($('ovAnalyze')) $('ovAnalyze').addEventListener('click', openAnalyzeGame);
   var kind = outcome === 'w' ? 'good' : outcome === 'l' ? 'bad' : 'info';
   GM.feed = [{ k: kind, who: 'Fin de la partida', t: title + '.' }];
   renderFeed();
@@ -2939,6 +3195,177 @@ function opNext() {
 }
 function leaveOpening() { OP.active = false; OP.token++; showTab('learn'); }
 
+/* ---------- Analizar: tablero libre, FEN, PGN y motor ---------- */
+var AN = { board: null, base: '', states: [], moves: [], sans: [], pos: 0, flip: false, sel: -1, busy: false, token: 0, ev: null, best: null, rows: [], result: '*', title: '', ms: 2000, notice: '' };
+
+function evText(w) {
+  if (Math.abs(w) > 90000) { var n = Math.ceil((AI.MATE - Math.abs(w)) / 2); return (w > 0 ? '' : '-') + '#' + n; }
+  return (w > 0 ? '+' : '') + (w / 100).toFixed(1);
+}
+function evPercent(w) { return Math.abs(w) > 90000 ? (w > 0 ? 100 : 0) : Math.round(50 + 50 * Math.tanh(w / 400)); }
+
+function anLoadFen(fen) {
+  AN.base = fen; AN.states = [R.fromFEN(fen)]; AN.moves = []; AN.sans = []; AN.pos = 0;
+  AN.sel = -1; AN.ev = null; AN.best = null; AN.rows = []; AN.result = '*'; AN.title = ''; AN.token++;
+}
+function anLoadGame(g, result, title) {
+  AN.base = R.toFEN(g.states[0]); AN.states = g.states.slice(); AN.moves = g.moves.slice(); AN.sans = g.sans.slice();
+  AN.pos = AN.moves.length; AN.sel = -1; AN.ev = null; AN.best = null; AN.rows = []; AN.result = result || '*'; AN.title = title || ''; AN.token++;
+}
+function anCur() { return AN.states[AN.pos]; }
+
+function pgnText() {
+  var d = new Date(), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+  var h = '[Event "' + (AN.title || 'Partida de práctica') + '"]\n[Site "Ajedrez Paso a Paso"]\n[Date "' + d.getFullYear() + '.' + pad(d.getMonth() + 1) + '.' + pad(d.getDate()) + '"]\n[Result "' + AN.result + '"]\n';
+  if (AN.base !== R.START) h += '[SetUp "1"]\n[FEN "' + AN.base + '"]\n';
+  var res = AN.result;
+  if (res === '*') {
+    var last = AN.states[AN.states.length - 1], st = R.status(last);
+    if (st.result === 'checkmate') res = st.winner === 'w' ? '1-0' : '0-1';
+    else if (st.over) res = '1/2-1/2';
+  }
+  return h + '\n' + (AN.sans.length ? fmtLine(AN.base, AN.sans) + ' ' : '') + res + '\n';
+}
+
+function anDraw() {
+  var s = anCur(), lm = AN.pos > 0 ? AN.moves[AN.pos - 1] : null, hf = -1, ht = -1;
+  if (AN.best && AN.best.pos === AN.pos) { hf = AN.best.m.from; ht = AN.best.m.to; }
+  var moves = AN.sel >= 0 ? R.genLegal(s).filter(function (m) { return m.from === AN.sel; }) : [];
+  AN.board.draw({ s: s, flip: AN.flip, sel: AN.sel, moves: moves, last: lm ? { from: lm.from, to: lm.to } : null, check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, hf: hf, ht: ht });
+  var html = '';
+  for (var i = 0; i < AN.sans.length; i++) {
+    var startBlack = AN.base.split(' ')[1] === 'b', num = (+AN.base.split(' ')[5] || 1);
+    var blackMove = startBlack ? (i % 2 === 0) : (i % 2 === 1);
+    var moveNo = num + Math.floor((i + (startBlack ? 1 : 0)) / 2);
+    if (!blackMove) html += '<span class="n">' + moveNo + '.</span>';
+    else if (i === 0) html += '<span class="n">' + moveNo + '…</span>';
+    html += '<button type="button" data-p="' + (i + 1) + '"' + (AN.pos === i + 1 ? ' class="cur"' : '') + '>' + esc(AN.sans[i]) + '</button>';
+  }
+  $('anMoves').innerHTML = html || '<span class="n">Mueve una pieza para empezar</span>';
+  if (AN.ev === null) { $('anEval').textContent = '–'; $('anBar').style.width = '50%'; }
+  else { $('anEval').textContent = evText(AN.ev); $('anBar').style.width = evPercent(AN.ev) + '%'; }
+  var st = R.status(s);
+  $('anInfo').textContent = AN.notice || (st.over ? (st.result === 'checkmate' ? 'Jaque mate' : 'Tablas') : 'Mueven las ' + (s.turn === 'w' ? 'blancas' : 'negras'));
+  $('anRun').disabled = AN.busy || st.over;
+  $('anRun').textContent = AN.busy ? 'Analizando…' : 'Analizar esta posición';
+  $('anFirst').disabled = $('anPrev').disabled = AN.pos === 0;
+  $('anNext').disabled = $('anLast').disabled = AN.pos >= AN.moves.length;
+  if (!document.activeElement || document.activeElement.id !== 'anFenIn') $('anFenIn').value = R.toFEN(s);
+  $('anPgn').value = pgnText();
+}
+
+function anGo(p) {
+  AN.pos = Math.max(0, Math.min(AN.moves.length, p));
+  AN.sel = -1; AN.ev = null; AN.best = null; AN.rows = []; AN.notice = ''; AN.token++; AN.busy = false;
+  $('anRes').innerHTML = '';
+  anDraw();
+}
+
+function anPlay(m) {
+  var s = anCur(), legal = R.genLegal(s), sn = R.san(s, m, legal);
+  AN.states.length = AN.pos + 1; AN.moves.length = AN.pos; AN.sans.length = AN.pos;
+  AN.states.push(R.makeMove(s, m)); AN.moves.push(m); AN.sans.push(sn);
+  AN.result = '*';
+  anGo(AN.pos + 1);
+}
+
+function anTap(i) {
+  var s = anCur(), p = s.b[i], mine = p && (R.isW(p) === (s.turn === 'w')), legal = R.genLegal(s);
+  AN.notice = '';
+  if (AN.sel >= 0) {
+    var cands = legal.filter(function (m) { return m.from === AN.sel && m.to === i; });
+    if (cands.length) { chooseMove(cands, AN.board.root.parentNode, anPlay); return; }
+    if (mine) AN.sel = AN.sel === i ? -1 : i;
+    else AN.notice = whyIllegal(s, AN.sel, i);
+  } else if (mine) AN.sel = i;
+  anDraw();
+}
+
+function anAnalyze() {
+  if (AN.busy) return;
+  var s = anCur(), legal = R.genLegal(s);
+  if (!legal.length) return;
+  AN.busy = true; AN.token++;
+  var tk = AN.token, ms = AN.ms, pos = AN.pos;
+  anDraw();
+  setTimeout(function () {
+    if (tk !== AN.token) return;
+    var res = AI.rootSearch(s, 14, Math.round(ms * 0.55), 0), d = res.depth, cand = res.slice(0, Math.min(4, res.length)), rows = [], i;
+    var white = s.turn === 'w';
+    for (i = 0; i < cand.length; i++) {
+      var sc = i === 0 && cand.length === 1 ? res[0].sc : AI.scoreMove(s, cand[i].m, Math.max(1, d), Math.round(ms * 0.12) + 80);
+      if (sc === null) sc = cand[i].sc;
+      rows.push({ m: cand[i].m, sc: sc });
+    }
+    rows.sort(function (a, b) { return b.sc - a.sc; });
+    // línea principal de la mejor jugada
+    var cur = R.makeMove(s, rows[0].m), pv = [R.san(s, rows[0].m)];
+    for (i = 0; i < 5; i++) {
+      var lg = R.genLegal(cur);
+      if (!lg.length) break;
+      var r2 = AI.rootSearch(cur, 5, 220, 0)[0].m;
+      pv.push(R.san(cur, r2, lg)); cur = R.makeMove(cur, r2);
+    }
+    if (tk !== AN.token) return;
+    AN.busy = false;
+    AN.ev = white ? rows[0].sc : -rows[0].sc;
+    AN.best = { m: rows[0].m, pos: pos };
+    AN.rows = rows;
+    var html = '';
+    rows.forEach(function (r, k) {
+      var w = white ? r.sc : -r.sc;
+      html += '<button type="button" class="anrow' + (k === 0 ? ' best' : '') + '" data-r="' + k + '"><span class="ev">' + evText(w) + '</span><span class="mv">' + esc(R.san(s, r.m, legal)) +
+        (k === 0 ? '<small>' + esc(pv.join(' ')) + '</small>' : '') + '</span></button>';
+    });
+    html += '<p class="muted">Profundidad ' + d + '. Toca una jugada para hacerla en el tablero. La evaluación es desde el punto de vista de las blancas.</p>';
+    $('anRes').innerHTML = html;
+    anDraw();
+  }, 40);
+}
+
+function copyText(txt, msgId) {
+  var done = function (ok) { $('anMsg').textContent = ok ? 'Copiado.' : 'No se pudo copiar. Mantén pulsado el texto para seleccionarlo.'; };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(txt).then(function () { done(true); }, function () { done(false); }); return; }
+  } catch (e) { /* sigue */ }
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = txt; document.body.appendChild(ta); ta.select();
+    var ok = document.execCommand('copy'); document.body.removeChild(ta); done(ok);
+  } catch (e2) { done(false); }
+}
+
+function parseFenCheck(txt) {
+  txt = (txt || '').trim().replace(/\s+/g, ' ');
+  var parts = txt.split(' ');
+  if (parts.length < 2) return 'El FEN debe tener al menos el tablero y de quién es el turno.';
+  var rows = parts[0].split('/');
+  if (rows.length !== 8) return 'El tablero debe tener 8 filas separadas por “/”.';
+  var kW = 0, kB = 0;
+  for (var i = 0; i < 8; i++) {
+    var n = 0;
+    for (var j = 0; j < rows[i].length; j++) {
+      var c = rows[i][j];
+      if (/[1-8]/.test(c)) n += +c;
+      else if (/[pnbrqkPNBRQK]/.test(c)) { n++; if (c === 'K') kW++; if (c === 'k') kB++; }
+      else return 'Carácter no válido en el tablero: ' + c;
+    }
+    if (n !== 8) return 'La fila ' + (8 - i) + ' no suma 8 casillas.';
+  }
+  if (kW !== 1 || kB !== 1) return 'Debe haber exactamente un rey de cada color.';
+  if (parts[1] !== 'w' && parts[1] !== 'b') return 'El turno debe ser w (blancas) o b (negras).';
+  var s;
+  try { s = R.fromFEN(txt); } catch (e) { return 'No se pudo leer ese FEN.'; }
+  if (R.inCheck(s, R.other(s.turn))) return 'Posición imposible: el rey que no mueve está en jaque.';
+  return '';
+}
+
+function openAnalyzeGame() {
+  var res = GM.result || '*';
+  anLoadGame(GM.g, res, 'Partida contra ' + LVN[GM.level]);
+  showTab('analyze');
+}
+
 /* ---------- Revisión de la partida ---------- */
 var CLS_LABEL = { blunder: 'Error grave', mistake: 'Error', inacc: 'Imprecisión', good: 'Buena jugada' };
 var RV = { active: false, snap: null, token: 0, done: false, total: 0, at: 0, res: null };
@@ -3086,7 +3513,7 @@ function leaveReview() {
 
 /* ---------- Navegación e inicio ---------- */
 function showTab(t) {
-  var views = ['v-learn', 'v-lesson', 'v-ending', 'v-opening', 'v-tact', 'v-puzzle', 'v-review', 'v-play', 'v-guide'], i;
+  var views = ['v-learn', 'v-lesson', 'v-ending', 'v-opening', 'v-tact', 'v-puzzle', 'v-review', 'v-play', 'v-analyze', 'v-guide'], i;
   for (i = 0; i < views.length; i++) $(views[i]).hidden = true;
   var target;
   if (t === 'learn') target = LS.active ? 'v-lesson' : EG.active ? 'v-ending' : OP.active ? 'v-opening' : 'v-learn';
@@ -3107,6 +3534,10 @@ function showTab(t) {
       renderLearn();
       $('topSub').textContent = TABS.learn;
     }
+  } else if (t === 'analyze') {
+    if (!AN.states.length) { anLoadFen(R.START); }
+    $('topSub').textContent = TABS.analyze;
+    anDraw();
   } else if (t === 'tact') {
     if (target === 'v-tact') { renderTact(); $('topSub').textContent = TABS.tact; }
     else $('topSub').textContent = TABS.tact;
@@ -3142,6 +3573,28 @@ function init() {
     var g = up(e.target, 'go', $('contCard'));
     if (g) showTab(g.dataset.go);
   });
+  AN.board = makeBoard($('anBoard'));
+  AN.board.onTap = anTap;
+  $('anFirst').addEventListener('click', function () { anGo(0); });
+  $('anPrev').addEventListener('click', function () { anGo(AN.pos - 1); });
+  $('anNext').addEventListener('click', function () { anGo(AN.pos + 1); });
+  $('anLast').addEventListener('click', function () { anGo(AN.moves.length); });
+  $('anFlip').addEventListener('click', function () { AN.flip = !AN.flip; anDraw(); });
+  $('anRun').addEventListener('click', anAnalyze);
+  $('anMoves').addEventListener('click', function (e) { var t = up(e.target, 'p', $('anMoves')); if (t) anGo(+t.dataset.p); });
+  $('anTime').addEventListener('click', function (e) { var t = up(e.target, 'v', $('anTime')); if (t) { AN.ms = +t.dataset.v; mark($('anTime'), t); } });
+  $('anRes').addEventListener('click', function (e) {
+    var t = up(e.target, 'r', $('anRes'));
+    if (t && AN.rows[+t.dataset.r]) anPlay(AN.rows[+t.dataset.r].m);
+  });
+  $('anLoad').addEventListener('click', function () {
+    var txt = $('anFenIn').value, err = parseFenCheck(txt);
+    if (err) { $('anMsg').textContent = err; return; }
+    anLoadFen(txt.trim().replace(/\s+/g, ' ')); $('anRes').innerHTML = ''; $('anMsg').textContent = 'Posición cargada.'; anDraw();
+  });
+  $('anStart').addEventListener('click', function () { anLoadFen(R.START); $('anRes').innerHTML = ''; $('anMsg').textContent = ''; anDraw(); });
+  $('anCopyFen').addEventListener('click', function () { copyText(R.toFEN(anCur())); });
+  $('anCopyPgn').addEventListener('click', function () { copyText(pgnText()); });
   OP.board = makeBoard($('opBoard'));
   OP.board.onTap = opTap;
   $('opBack').addEventListener('click', leaveOpening);
@@ -3196,6 +3649,12 @@ function init() {
     if (!t) return;
     CFG.color = t.dataset.v;
     mark($('segColor'), t);
+  });
+  $('segClock').addEventListener('click', function (e) {
+    var t = up(e.target, 'v', $('segClock'));
+    if (!t) return;
+    CFG.clock = t.dataset.v;
+    mark($('segClock'), t);
   });
   $('segLevel').addEventListener('click', function (e) {
     var t = up(e.target, 'v', $('segLevel'));
