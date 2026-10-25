@@ -259,6 +259,10 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
 .anrow.best { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
 .gsec { margin-top: 10px; }
 
+.top .voice { flex: none; margin-left: auto; margin-right: 8px; width: 36px; height: 32px; border-radius: 99px; border: 1px solid var(--line, #d6ddd8); background: var(--card, #fff); font-size: 16px; line-height: 1; cursor: pointer; }
+.top .voice[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); }
+.top .voice[hidden] { display: none; }
+
 </style>
 
 <div id="app">
@@ -270,6 +274,7 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
         <p id="topSub">Aprende jugando</p>
       </div>
     </div>
+    <button class="voice" id="voiceBtn" type="button" aria-pressed="false" aria-label="Voz que lee las explicaciones" title="Voz">&#128263;</button>
     <span class="ring" id="progRing" title="Ejercicios completados">0/0</span>
   </header>
 
@@ -2284,7 +2289,7 @@ try {
     if (!prog.games) prog.games = { w: 0, l: 0, d: 0 };
   }
 } catch (e) { /* sin almacenamiento: la app sigue funcionando */ }
-prog.end = prog.end || {}; prog.open = prog.open || {}; prog.pz = prog.pz || {}; prog.pts = prog.pts || 0; prog.mine = prog.mine || []; prog.streak = prog.streak || { n: 0, last: '' };
+prog.end = prog.end || {}; prog.open = prog.open || {}; prog.pz = prog.pz || {}; prog.pts = prog.pts || 0; prog.mine = prog.mine || []; prog.streak = prog.streak || { n: 0, last: '' }; prog.voice = !!prog.voice;
 function saveProg() { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) { /* ignorar */ } }
 
 /* ---------- Tablero ---------- */
@@ -2374,7 +2379,38 @@ function whyIllegal(s, from, to) {
 /* ---------- Tarjetas del entrenador ---------- */
 var IC = { good: '✓', warn: '!', bad: '!', tip: 'i', info: 'i' };
 // items: [{ k, t, who }], acts: [{ label, primary, fn }]
+/* ---------- Voz (síntesis del navegador, sin internet) ---------- */
+var VOICE_OK = typeof window !== 'undefined' && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+function pickVoice() {
+  try {
+    var vs = window.speechSynthesis.getVoices() || [], i;
+    for (i = 0; i < vs.length; i++) if (/^es[-_](419|MX|US)/i.test(vs[i].lang)) return vs[i];
+    for (i = 0; i < vs.length; i++) if (/^es/i.test(vs[i].lang)) return vs[i];
+  } catch (e) { /* ignorar */ }
+  return null;
+}
+function speak(items) {
+  if (!VOICE_OK || !prog.voice) return;
+  try {
+    var txt = items.filter(function (c) { return c.t && c.t !== 'Pensando…'; }).map(function (c) { return (c.who ? c.who + '. ' : '') + c.t; }).join(' ')
+      .replace(/[♔♕♖♗♘♙♚♛♜♝♞♟]/g, '').replace(/\s+/g, ' ');
+    window.speechSynthesis.cancel();
+    if (!txt) return;
+    var u = new SpeechSynthesisUtterance(txt.slice(0, 600));
+    u.lang = 'es-419'; u.rate = 0.95;
+    var v = pickVoice(); if (v) { u.voice = v; u.lang = v.lang; }
+    window.speechSynthesis.speak(u);
+  } catch (e) { /* ignorar */ }
+}
+function setVoice(on) {
+  prog.voice = !!on; saveProg();
+  var b = $('voiceBtn');
+  if (b) { b.setAttribute('aria-pressed', on ? 'true' : 'false'); b.innerHTML = on ? '&#128266;' : '&#128263;'; b.title = on ? 'Voz activada' : 'Voz desactivada'; }
+  if (!on && VOICE_OK) { try { window.speechSynthesis.cancel(); } catch (e) { /* ignorar */ } }
+}
+
 function renderCoach(root, items, acts) {
+  speak(items);
   var html = '';
   items.forEach(function (c) {
     html += '<div class="cmsg ' + c.k + '"><span class="ic" aria-hidden="true">' + (IC[c.k] || 'i') + '</span><div class="tx">' +
@@ -4077,6 +4113,14 @@ function init() {
   $('egHint').addEventListener('click', endHint);
   $('egReset').addEventListener('click', loadEnding);
   $('egNext').addEventListener('click', endNext);
+  if ($('voiceBtn')) {
+    if (!VOICE_OK) $('voiceBtn').hidden = true;
+    setVoice(prog.voice);
+    $('voiceBtn').addEventListener('click', function () {
+      setVoice(!prog.voice);
+      if (prog.voice) speak([{ who: '', t: 'Voz activada. Te leeré los consejos y explicaciones.' }]);
+    });
+  }
   $('endList').addEventListener('click', function (e) {
     var t = up(e.target, 'end', $('endList'));
     if (t) { openEnding(t.dataset.end); return; }
