@@ -1,0 +1,29 @@
+AJEDREZ PASO A PASO - PWA
+
+Contenido
+  index.html            la app completa
+  manifest.webmanifest  nombre, colores e íconos para instalarla
+  sw.js                 guarda la app para usarla sin internet
+  icons/                íconos de 192, 512 (normal y adaptable) y 180 (iPhone)
+
+Publicar en GitHub Pages
+  1. Crea un repositorio nuevo (por ejemplo ajedrez) y sube todo el contenido de esta carpeta,
+     con index.html en la raíz del repositorio. Mantén la carpeta icons.
+  2. En Settings > Pages elige la rama main y la carpeta / (root).
+  3. Espera un par de minutos. La dirección queda como https://TU-USUARIO.github.io/ajedrez/
+
+Instalar en el celular (abre la dirección anterior)
+  Android (Chrome): menú de tres puntos > Instalar app (o Agregar a la pantalla principal).
+  iPhone (Safari):  botón Compartir > Agregar a pantalla de inicio.
+
+Sin internet
+  La primera vez necesita conexión. Después abre sin internet.
+  Las fuentes de Google se guardan la primera vez que cargan; si no, se usa una letra del sistema.
+
+Actualizar la app más adelante
+  Sube el index.html nuevo y cambia VERSION en sw.js (de 'v1' a 'v2'). Con conexión, el celular
+  recibe la versión nueva al abrir la app.
+
+Tu progreso
+  Se guarda en el celular donde uses la app. Si instalas la app, el progreso del navegador y el de la
+  app instalada pueden ser distintos en algunos teléfonos.
