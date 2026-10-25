@@ -1718,10 +1718,30 @@ var Endgames = (function () {
       intro: 'Con dos torres no necesitas al rey: una torre corta y la otra da jaque, y van empujando al rey rival fila por fila como una escalera.',
       tips: ['Pon una torre en una fila para cortar al rey y da jaque con la otra en la fila siguiente.', 'Repite el movimiento: las torres suben por turnos, siempre en filas contiguas.', 'Que ninguna torre quede al alcance del rey rival.'],
       ok: 'Mate de escalera. Es la forma más rápida de ganar con dos piezas mayores.' },
-    { id: 'peon6', title: 'Peón y rey: coronar', fen: '4k3/8/4K3/4P3/8/8/8/8 w - - 0 1', goal: 'promote', cap: 14,
+    { id: 'peon6', title: 'Peón y rey: coronar', fen: '4k3/8/4K3/4P3/8/8/8/8 w - - 0 1', goal: 'promote', cap: 14, tb: true,
       intro: 'Tu rey va delante del peón y en la sexta fila: es una posición ganadora. Corona el peón en dama.',
       tips: ['El rey debe ir delante del peón, no detrás.', 'Si el rey rival se pone enfrente, mueve tu rey para quitarle las casillas y avanza el peón solo cuando sea seguro.', 'No dejes al rival sin movimientos: recuerda el ahogado.'],
-      ok: 'Peón coronado. Con el rey por delante del peón y en la sexta fila, el final está ganado.' }
+      ok: 'Peón coronado. Con el rey por delante del peón y en la sexta fila, el final está ganado.' },
+    { id: 'peon-oposicion', title: 'Peón y rey: la oposición', fen: '8/3k4/8/4K3/3P4/8/8/8 w - - 0 1', goal: 'promote', cap: 25, tb: true,
+      intro: 'Tu rey está junto al peón y el rey rival bloquea el camino. Gana la oposición para abrirte paso y corona. Cuidado: casi cualquier otra jugada permite tablas.',
+      tips: ['Oposición: tu rey frente al rey rival, con una casilla en medio y con el turno de mover para él.', 'Con la oposición, avanza el rey hasta las casillas clave delante del peón; el peón solo avanza cuando el rey lo escolta.', 'Si dudas, casi siempre conviene mover el rey, no el peón.'],
+      ok: 'Peón coronado. Ganar la oposición y llegar a las casillas clave delante del peón es la técnica base de los finales de peones.' },
+    { id: 'peon-clave', title: 'Casillas clave', fen: '3k4/8/2K5/4P3/8/8/8/8 w - - 0 1', goal: 'promote', cap: 20, tb: true,
+      intro: 'Tu rey debe llegar a una casilla clave, delante del peón, antes de que el rey rival lo impida. Desde ahí el peón corona sin que nadie lo detenga.',
+      tips: ['Para un peón en e5, las casillas clave son d6, e6 y f6: con tu rey en una de ellas, ganas.', 'Elige el camino que lleve a tu rey a una casilla clave sin que el rival te cierre el paso.', 'Avanza el peón solo cuando tu rey ya está delante o a su lado.'],
+      ok: 'Peón coronado. Con el rey en una casilla clave, el peón corona sin importar lo que haga el rival.' },
+    { id: 'cuadrado', title: 'La regla del cuadrado', fen: '8/1K6/8/8/6P1/3k4/8/8 w - - 0 1', goal: 'promote', cap: 8, tb: true,
+      intro: 'El rey rival está lejos del peón y tu rey no puede ayudar. ¿Corona solo? Imagina el cuadrado desde el peón hasta su casilla de coronación: si el rey rival no entra en él, el peón corona.',
+      tips: ['Cuenta: el peón necesita 4 jugadas para coronar y el rey rival necesita más para llegar a la casilla de coronación.', 'Si el rey rival no puede entrar en el cuadrado, avanza el peón sin dudar.', 'Asegúrate de que el peón no pueda ser capturado antes de coronar.'],
+      ok: 'Peón coronado. Si el rey rival queda fuera del cuadrado, el peón corona sin ayuda.' },
+    { id: 'def-oposicion', title: 'Defender: la oposición', fen: '4k3/8/8/3K4/3P4/8/8/8 b - - 0 1', user: 'b', goal: 'hold', cap: 12, tb: true,
+      intro: 'Ahora defiendes. Las blancas tienen un peón de más, pero la partida se salva si tomas la oposición a tiempo. En cada paso hay pocas jugadas que salvan: si eliges una que pierde, la app te avisa y no la ejecuta.',
+      tips: ['Pon tu rey frente al rey blanco, con una casilla en medio: es la oposición.', 'Mantén tu rey delante del peón, nunca a un lado.', 'Si el rey blanco cambia de lado, responde de la misma forma: siempre frente a él.'],
+      ok: 'Tablas aseguradas. Un rey bien colocado delante del peón y con la oposición salva el final.' },
+    { id: 'def-torre', title: 'Defender: el peón de torre', fen: '3k4/8/1K6/P7/8/8/8/8 b - - 0 1', user: 'b', goal: 'hold', cap: 12, tb: true,
+      intro: 'El peón es de torre (columna a). Si tu rey llega a la esquina de coronación, es tablas aunque las blancas tengan el peón. Lleva tu rey hacia allí sin equivocarte.',
+      tips: ['Con un peón de torre, las blancas no pueden ganar si tu rey llega a su esquina (a8 en esta posición).', 'No te alejes de la esquina: un paso en otra dirección puede ser el último.', 'Si el peón avanza, acércate a la esquina o captura el peón.'],
+      ok: 'Tablas aseguradas. Con el peón de torre, al rey defensor le basta llegar a la esquina de coronación.' }
   ];
   return { LIST: LIST };
 })();
@@ -1729,133 +1749,508 @@ if (typeof module !== 'undefined') module.exports = Endgames;
 
 var Openings = (function () {
   function L(arr) { return arr.map(function (x) { return { s: x[0], t: x[1] }; }); }
+  // Una variante nueva: comparte las primeras n jugadas con "base" y continúa con "tail"
+  function X(base, n, tail, plan) { return { m: base.m.slice(0, n).concat(L(tail)), plan: plan || base.plan }; }
+  function V(arr, plan) { return { m: L(arr), plan: plan }; }
+
+  var italA = V([
+    ['e4', 'Ocupa el centro y abre líneas para el alfil de rey y la dama.'],
+    ['e5', 'El rival responde con la misma idea.'],
+    ['Nf3', 'Desarrolla un caballo y ataca el peón de e5.'],
+    ['Nc6', 'Defiende su peón desarrollando una pieza.'],
+    ['Bc4', 'El alfil apunta a f7, el punto más débil del rival, y prepara el enroque.'],
+    ['Bc5', 'El rival coloca su alfil de forma simétrica.'],
+    ['c3', 'Prepara el avance d4 para tener dos peones en el centro.'],
+    ['Nf6', 'Desarrolla atacando tu peón de e4.'],
+    ['d3', 'Defiende e4 de forma sólida y libera el alfil de c1. Es el plan tranquilo de esta apertura.'],
+    ['d6', 'Defiende su centro y libera su alfil.'],
+    ['O-O', 'Enroca: el rey queda a salvo y la torre se activa.'],
+    ['O-O', 'El rival también pone su rey a salvo.'],
+    ['Re1', 'La torre defiende e4 y apoya un futuro avance en el centro.'],
+    ['a6', 'El rival prepara retirar su alfil o jugar b5.'],
+    ['Bb3', 'Retiras el alfil a una casilla segura; sigue apuntando a f7 y evitas que lo ataquen con ...b5.'],
+    ['Ba7', 'El rival también retira su alfil.'],
+    ['h3', 'Quita la casilla g4 al alfil rival y evita clavar tu caballo de f3.']
+  ], 'Plan a seguir: lleva el caballo de b1 hacia g3 por d2 y f1, y avanza d4 cuando tus piezas estén listas. Si el rival se desvía, mantén las mismas ideas: centro, desarrollo y rey a salvo.');
+  var italB = X(italA, 5, [
+    ['Nf6', 'El rival desarrolla atacando e4 (esta es la “Dos caballos”).'],
+    ['d3', 'Defiende e4 con calma y libera el alfil de c1: evitas las complicaciones de Ng5.'],
+    ['Bc5', 'El rival activa su alfil.'],
+    ['c3', 'Prepara el avance d4 y da una casilla de retirada al alfil.'],
+    ['d6', 'Defiende su centro.'],
+    ['O-O', 'Enroca: el rey queda a salvo.'],
+    ['O-O', 'El rival también enroca.'],
+    ['Re1', 'La torre defiende e4 y apoya un futuro avance central.'],
+    ['a6', 'El rival prepara retirar el alfil.'],
+    ['Bb3', 'Retiras el alfil a una casilla segura, apuntando a f7.'],
+    ['Ba7', 'El rival retira su alfil.'],
+    ['h3', 'Quita la casilla g4 al alfil rival.']
+  ]);
+
+  var lonA = V([
+    ['d4', 'Ocupa el centro con el peón de dama y libera el alfil de c1.'],
+    ['d5', 'El rival también ocupa el centro.'],
+    ['Bf4', 'Saca el alfil de dama antes de cerrarlo con e3: es la idea del sistema Londres.'],
+    ['Nf6', 'Desarrolla un caballo y controla e4.'],
+    ['e3', 'Protege el alfil y abre el camino al alfil de rey.'],
+    ['e6', 'Abre la diagonal de su alfil de rey.'],
+    ['Nf3', 'Desarrolla el caballo y controla e5.'],
+    ['Bd6', 'El rival quiere cambiar tu alfil activo.'],
+    ['Bg3', 'Retiras el alfil: si lo cambia, recapturas con el peón de h y abres la columna h.'],
+    ['O-O', 'El rival enroca.'],
+    ['Nbd2', 'Desarrolla el otro caballo y prepara la ruptura e4.'],
+    ['c5', 'El rival ataca tu centro.'],
+    ['c3', 'Refuerza d4 y asegura el centro.'],
+    ['Nc6', 'Más presión sobre d4.'],
+    ['Bd3', 'Desarrolla el último alfil hacia el flanco de rey y prepara tu enroque.']
+  ], 'Plan a seguir: enroca corto y busca la ruptura e4 (o Ne5). Este montaje con peones en c3, d4 y e3 y alfil en f4 sirve contra muchas respuestas.');
+  var lonB = X(lonA, 1, [
+    ['Nf6', 'El rival desarrolla primero el caballo.'],
+    ['Bf4', 'Sacas el alfil antes de cerrar con e3.'],
+    ['e6', 'Prepara d5 y abre su alfil de rey.'],
+    ['e3', 'Protege el alfil y abre el camino al alfil de rey.'],
+    ['d5', 'El rival ocupa el centro.'],
+    ['Nf3', 'Desarrolla y controla e5.'],
+    ['Bd6', 'El rival quiere cambiar tu alfil.'],
+    ['Bg3', 'Lo retiras: si lo cambia, recapturas con el peón de h.'],
+    ['O-O', 'El rival enroca.'],
+    ['Nbd2', 'Desarrolla el otro caballo y prepara e4.'],
+    ['c5', 'El rival ataca tu centro.'],
+    ['c3', 'Refuerza d4.'],
+    ['Nc6', 'Más presión sobre d4.'],
+    ['Bd3', 'Desarrolla el último alfil y prepara tu enroque.']
+  ]);
+
+  var gamA = V([
+    ['d4', 'Ocupa el centro y abre el alfil de dama.'],
+    ['d5', 'El rival también ocupa el centro.'],
+    ['c4', 'Ofreces un peón (gambito): si lo toma, no podrá conservarlo y tú ganas control del centro.'],
+    ['e6', 'Defiende d5 con un peón.'],
+    ['Nc3', 'Desarrolla un caballo y presiona el peón de d5.'],
+    ['Nf6', 'Desarrolla y defiende d5 otra vez.'],
+    ['Bg5', 'Clava el caballo que defiende d5: aumenta la presión sobre el centro rival.'],
+    ['Be7', 'El rival rompe la clavada y se prepara para enrocar.'],
+    ['e3', 'Apoya el centro y abre el camino al alfil de rey.'],
+    ['O-O', 'El rival enroca.'],
+    ['Nf3', 'Desarrolla el segundo caballo y controla e5.'],
+    ['Nbd7', 'El rival completa su desarrollo.']
+  ], 'Plan a seguir: enroca, juega Bd3 o Qc2 y busca capturar en d5 cuando convenga. Si el rival acepta el gambito con ...dxc4, recupera el peón desarrollando rápido.');
+  var gamB = X(gamA, 3, [
+    ['c6', 'El rival apoya d5 con el peón de c: es la defensa Eslava.'],
+    ['Nf3', 'Desarrolla el caballo y controla e5 antes de decidir el resto.'],
+    ['Nf6', 'Desarrolla y defiende d5.'],
+    ['Nc3', 'Aumenta la presión sobre d5 y desarrolla.'],
+    ['dxc4', 'El rival captura el peón de gambito.'],
+    ['a4', 'Impides ...b5, con el que el rival conservaría el peón extra.'],
+    ['Bf5', 'El rival saca su alfil antes de cerrar con e6.'],
+    ['e3', 'Abres el alfil de f1 para recuperar el peón de c4.'],
+    ['e6', 'El rival completa un montaje sólido.'],
+    ['Bxc4', 'Recuperas el peón: ya tienes buen centro y piezas desarrolladas.'],
+    ['Bb4', 'El rival clava tu caballo.'],
+    ['O-O', 'Enrocas y pones el rey a salvo.']
+  ], 'Plan a seguir: desarrolla Qe2 y e4 para tomar un gran centro, y no tengas prisa por recuperar el material perdido en el flanco de dama.');
+
+  var ruyA = V([
+    ['e4', 'Ocupa el centro y abre líneas para el alfil de rey y la dama.'],
+    ['e5', 'El rival responde con la misma idea.'],
+    ['Nf3', 'Desarrolla un caballo y ataca el peón de e5.'],
+    ['Nc6', 'Defiende su peón desarrollando una pieza.'],
+    ['Bb5', 'Presionas al caballo que defiende e5: es la idea de la Española (Ruy López).'],
+    ['a6', 'El rival pregunta al alfil qué piensa hacer.'],
+    ['Ba4', 'Mantienes la presión y conservas el alfil.'],
+    ['Nf6', 'Desarrolla atacando e4.'],
+    ['O-O', 'Enrocas. Si ...Nxe4, recuperas el peón con Re1 y d4.'],
+    ['Be7', 'El rival defiende e5 y se prepara para enrocar.'],
+    ['Re1', 'Defiende e4 para poder jugar Bxc6 y d4 sin perder el peón.'],
+    ['b5', 'El rival ataca al alfil.'],
+    ['Bb3', 'Retiras el alfil a la diagonal activa, apuntando a f7.'],
+    ['d6', 'El rival refuerza e5.'],
+    ['c3', 'Prepara d4 y da una casilla de retirada al alfil.'],
+    ['O-O', 'El rival enroca.'],
+    ['h3', 'Evita ...Bg4 y prepara el avance d4.']
+  ], 'Plan a seguir: Nbd2-f1-g3 y el avance d4. Es una apertura de planes largos: no tengas prisa por cambiar en e5.');
+  var ruyB = X(ruyA, 5, [
+    ['Nf6', 'El rival desarrolla atacando e4 (es la defensa Berlinesa).'],
+    ['O-O', 'Ofreces el peón e4: si lo toma, recuperas con Re1 y d4.'],
+    ['Nxe4', 'El rival acepta el peón.'],
+    ['d4', 'Abres el centro mientras su caballo está aislado.'],
+    ['Nd6', 'El caballo se retira y ataca tu alfil.'],
+    ['Bxc6', 'Cambias el alfil para dañar la estructura de peones rival.'],
+    ['dxc6', 'El rival recaptura con el peón.'],
+    ['dxe5', 'Recuperas el peón y atacas el caballo.'],
+    ['Nf5', 'El caballo se retira a una casilla activa.'],
+    ['Qxd8', 'Cambias las damas y llegas a un final con mejor estructura de peones.'],
+    ['Kxd8', 'El rey recaptura y pierde el derecho al enroque.']
+  ], 'Plan a seguir: en el final, tu ventaja es la estructura de peones (el rival tiene peones doblados en c). Juega Nc3, Bf4 y Rad1 y aprovecha la mayoría de peones en el flanco de rey.');
+
+  var ingA = V([
+    ['c4', 'Controla d5 desde el flanco sin comprometer el centro: es una Siciliana con los colores invertidos.'],
+    ['e5', 'El rival ocupa el centro.'],
+    ['Nc3', 'Desarrolla y refuerza el control de d5.'],
+    ['Nf6', 'Desarrolla y controla e4.'],
+    ['Nf3', 'Desarrolla y ataca e5.'],
+    ['Nc6', 'Defiende el peón.'],
+    ['g3', 'Prepara el fianchetto del alfil de rey, que presionará el centro y la diagonal larga.'],
+    ['d5', 'El rival ocupa el centro.'],
+    ['cxd5', 'Capturas para abrir la columna c y la diagonal del alfil.'],
+    ['Nxd5', 'El rival recaptura con el caballo.'],
+    ['Bg2', 'El alfil queda activo en la diagonal larga y presiona el centro y el flanco de dama.'],
+    ['Nb6', 'El caballo se retira para no ser atacado.'],
+    ['O-O', 'Enrocas: el rey queda a salvo.'],
+    ['Be7', 'El rival desarrolla su alfil.'],
+    ['a3', 'Prepara b4 para ganar espacio en el flanco de dama.'],
+    ['O-O', 'El rival enroca.'],
+    ['b4', 'Ganas espacio en el flanco de dama.']
+  ], 'Plan a seguir: sigue con Rb1, Bb2 y la presión sobre la columna c, y usa la diagonal larga del alfil de g2.');
+
+  var scoA = V([
+    ['e4', 'Ocupa el centro y abre líneas para el alfil de rey y la dama.'],
+    ['e5', 'El rival responde con la misma idea.'],
+    ['Nf3', 'Desarrolla un caballo y ataca el peón de e5.'],
+    ['Nc6', 'Defiende su peón desarrollando una pieza.'],
+    ['d4', 'Abres el centro de inmediato: es la idea de la Escocesa.'],
+    ['exd4', 'El rival captura el peón.'],
+    ['Nxd4', 'Recapturas con el caballo, que queda muy activo en el centro.'],
+    ['Nf6', 'El rival desarrolla atacando e4.'],
+    ['Nxc6', 'Cambias el caballo central para dañar la estructura de peones del rival.'],
+    ['bxc6', 'El rival recaptura con el peón de b.'],
+    ['e5', 'Atacas el caballo y ganas espacio.'],
+    ['Qe7', 'El rival ataca tu peón de e5 y el caballo no puede quedarse.'],
+    ['Qe2', 'Defiendes el peón de e5 y desarrollas la dama.'],
+    ['Nd5', 'El caballo se retira al centro.'],
+    ['c4', 'Atacas el caballo y lo obligas a moverse.']
+  ], 'Plan a seguir: desarrolla Bd3-Nd2 y aprovecha que el rival tiene peones doblados en c. Si el rival se desvía, mantén el control del centro.');
+
+  var fraA = V([
+    ['e4', 'Las blancas abren con el peón de rey.'],
+    ['e6', 'Prepara d5 para disputar el centro con un peón sólido.'],
+    ['d4', 'Las blancas ocupan el centro.'],
+    ['d5', 'Atacas el peón de e4 y reclamas tu parte del centro.'],
+    ['Nc3', 'Las blancas defienden e4 desarrollando.'],
+    ['Nf6', 'Desarrollas atacando el peón de e4.'],
+    ['Bg5', 'Las blancas clavan tu caballo.'],
+    ['Be7', 'Rompes la clavada y preparas el enroque.'],
+    ['e5', 'Las blancas atacan tu caballo avanzando el peón.'],
+    ['Nfd7', 'El caballo se retira; desde allí ataca la cadena de peones blancos.'],
+    ['Bxe7', 'Las blancas cambian los alfiles.'],
+    ['Qxe7', 'Recapturas con la dama.'],
+    ['f4', 'Las blancas refuerzan el peón de e5.'],
+    ['O-O', 'Enrocas: tu rey queda a salvo.'],
+    ['Nf3', 'Las blancas desarrollan.'],
+    ['c5', 'Atacas la base de la cadena de peones blancos: el peón de d4.']
+  ], 'Plan a seguir: presiona d4 con ...Nc6 y ...cxd4, y busca contraataque en el centro. Cuidado con el alfil de c8: es tu pieza más difícil de desarrollar.');
+  var fraB = X(fraA, 4, [
+    ['Nd2', 'Las blancas defienden e4 sin bloquear el alfil de c1 (es la variante Tarrasch).'],
+    ['c5', 'Atacas el centro blanco de inmediato.'],
+    ['exd5', 'Las blancas capturan.'],
+    ['exd5', 'Recapturas: queda una posición con peón aislado en d5 para ti y piezas activas.'],
+    ['Ngf3', 'Las blancas desarrollan.'],
+    ['Nc6', 'Desarrollas y presionas d4.'],
+    ['Bb5', 'Las blancas clavan tu caballo de c6.'],
+    ['Bd6', 'Desarrollas el alfil hacia una buena diagonal.'],
+    ['dxc5', 'Las blancas capturan el peón de c5.'],
+    ['Bxc5', 'Recapturas con el alfil, que queda activo.'],
+    ['O-O', 'Las blancas enrocan.'],
+    ['Ne7', 'Desarrollas el caballo sin permitir que te dupliquen los peones.']
+  ], 'Plan a seguir: enroca, y usa la actividad de tus piezas para compensar el peón aislado de d5. Evita cambios que dejen solo ese peón débil.');
+
+  var carA = V([
+    ['e4', 'Las blancas abren con el peón de rey.'],
+    ['c6', 'Prepara d5 apoyándolo con el peón de c y deja libre la diagonal de tu alfil de dama.'],
+    ['d4', 'Las blancas ocupan el centro.'],
+    ['d5', 'Atacas el peón de e4.'],
+    ['Nc3', 'Las blancas defienden e4.'],
+    ['dxe4', 'Capturas para liberar tu alfil de dama.'],
+    ['Nxe4', 'Las blancas recuperan el peón.'],
+    ['Bf5', 'Sacas el alfil fuera de tu cadena de peones antes de jugar e6: es la idea clave de la Caro-Kann.'],
+    ['Ng3', 'Las blancas atacan tu alfil.'],
+    ['Bg6', 'Retiras el alfil manteniéndolo activo.'],
+    ['h4', 'Las blancas amenazan h5 para atrapar el alfil.'],
+    ['h6', 'Das aire al alfil: si llega h5, tendrá la casilla h7.'],
+    ['Nf3', 'Las blancas desarrollan.'],
+    ['Nd7', 'Desarrollas el caballo y preparas Ngf6.'],
+    ['h5', 'Las blancas atacan otra vez al alfil.'],
+    ['Bh7', 'El alfil queda a salvo en h7.'],
+    ['Bd3', 'Las blancas ofrecen cambiar los alfiles.'],
+    ['Bxd3', 'Cambias tu alfil por el suyo, que era el más activo.'],
+    ['Qxd3', 'Las blancas recapturan.'],
+    ['e6', 'Cierras tu estructura y completas un montaje sólido.']
+  ], 'Plan a seguir: desarrolla Ngf6, enroca y cambia piezas con calma. Tu estructura es muy sólida y casi no tiene debilidades.');
+  var carB = X(carA, 4, [
+    ['e5', 'Las blancas avanzan el peón y ganan espacio (variante del Avance).'],
+    ['Bf5', 'Sacas el alfil antes de cerrar la cadena de peones con e6.'],
+    ['Nf3', 'Las blancas desarrollan.'],
+    ['e6', 'Cierras el centro y proteges tu estructura.'],
+    ['Be2', 'Las blancas desarrollan el alfil.'],
+    ['c5', 'Atacas la base de la cadena de peones blancos, el peón de d4.'],
+    ['Be3', 'Las blancas refuerzan d4.'],
+    ['cxd4', 'Abres la posición para activar tus piezas.'],
+    ['Nxd4', 'Las blancas recapturan.'],
+    ['Ne7', 'Desarrollas el caballo sin bloquear tu alfil, y preparas Nbc6 o Ng6.']
+  ], 'Plan a seguir: desarrolla Nbc6, enroca y presiona el peón de d4 y el de e5 desde tu flanco de dama.');
+
+  var indA = V([
+    ['d4', 'Las blancas ocupan el centro.'],
+    ['Nf6', 'Controla e4 sin comprometer peones.'],
+    ['c4', 'Las blancas ganan más espacio.'],
+    ['g6', 'Prepara el fianchetto: el alfil irá a g7.'],
+    ['Nc3', 'Las blancas desarrollan.'],
+    ['Bg7', 'El alfil apunta al centro y a toda la diagonal larga.'],
+    ['e4', 'Las blancas construyen un gran centro de peones.'],
+    ['d6', 'Apoya la ruptura e5 y libera tu alfil de dama.'],
+    ['Nf3', 'Las blancas desarrollan.'],
+    ['O-O', 'Enrocas: el rey queda a salvo.'],
+    ['Be2', 'Las blancas preparan su enroque.'],
+    ['e5', 'Golpeas el centro blanco: es la ruptura típica de esta defensa.']
+  ], 'Plan a seguir: cuando las blancas abran el juego, ataca su centro con ...exd4 o ...c6, y usa el alfil de g7 como arma principal.');
+
+  var najA = V([
+    ['e4', 'Las blancas abren con el peón de rey.'],
+    ['c5', 'La Siciliana: atacas el centro blanco desde el flanco y buscas una partida desequilibrada.'],
+    ['Nf3', 'Las blancas desarrollan y controlan d4.'],
+    ['d6', 'Prepara ...Nf6 y ...cxd4 con el peón de e a salvo.'],
+    ['d4', 'Las blancas abren el centro.'],
+    ['cxd4', 'Cambias tu peón de flanco por el peón central blanco.'],
+    ['Nxd4', 'Las blancas recapturan con el caballo.'],
+    ['Nf6', 'Atacas e4 y desarrollas.'],
+    ['Nc3', 'Las blancas defienden e4.'],
+    ['a6', 'El golpe de la Najdorf: quitas las casillas b5 y c4 a las piezas blancas y preparas ...e5 o ...b5.'],
+    ['Be2', 'Las blancas eligen la variante tranquila.'],
+    ['e5', 'Echas al caballo de d4 y ocupas el centro.'],
+    ['Nb3', 'El caballo se retira.'],
+    ['Be7', 'Desarrollas el alfil y preparas el enroque.'],
+    ['O-O', 'Las blancas enrocan.'],
+    ['O-O', 'Enrocas tú también.'],
+    ['Be3', 'Las blancas desarrollan.'],
+    ['Be6', 'Desarrollas el último alfil y vigilas el flanco de dama.']
+  ], 'Plan a seguir: sigue con ...Qc7, ...Nbd7 y ...Rac8 y presiona el flanco de dama con ...b5 y ...Rc8. Controla d5 y no dejes que las blancas cierren el centro.');
+  var najB = X(najA, 10, [
+    ['Bg5', 'Las blancas clavan tu caballo y amenazan Bxf6 y Nd5.'],
+    ['e6', 'Preparas ...Be7 y ...Qc7 con un centro sólido.'],
+    ['f4', 'Las blancas ganan espacio y preparan Qf3.'],
+    ['Be7', 'Desarrollas el alfil y preparas el enroque.'],
+    ['Qf3', 'Las blancas desarrollan la dama.'],
+    ['Qc7', 'Desarrollas la dama y presionas la columna c.'],
+    ['O-O-O', 'Las blancas enrocan largo: se preparan los ataques en flancos opuestos.'],
+    ['Nbd7', 'Desarrollas el último caballo.']
+  ], 'Plan a seguir: enroca corto y prepara ...b5 y ...Bb7 para atacar el rey blanco, que está enrocado largo. Cuidado con los ataques de peones blancos en el flanco de rey.');
+
+  var nimA = V([
+    ['d4', 'Las blancas ocupan el centro.'],
+    ['Nf6', 'Controla e4 sin comprometer peones.'],
+    ['c4', 'Las blancas ganan espacio.'],
+    ['e6', 'Prepara la clavada y abre el alfil de rey.'],
+    ['Nc3', 'Las blancas desarrollan.'],
+    ['Bb4', 'La clavada: la idea de la Nimzoíndia. Controlas e4 sin ocupar el centro con peones.'],
+    ['e3', 'Las blancas abren su alfil de rey.'],
+    ['O-O', 'Enrocas: el rey queda a salvo.'],
+    ['Bd3', 'Las blancas desarrollan.'],
+    ['d5', 'Ocupas el centro.'],
+    ['Nf3', 'Las blancas desarrollan.'],
+    ['c5', 'Atacas el centro blanco.'],
+    ['O-O', 'Las blancas enrocan.'],
+    ['Nc6', 'Desarrollas y presionas d4.'],
+    ['a3', 'Las blancas preguntan al alfil.'],
+    ['Bxc3', 'Cambias el alfil por el caballo: las blancas quedarán con peones doblados en c.'],
+    ['bxc3', 'Las blancas recapturan.'],
+    ['dxc4', 'Obligas al alfil blanco a salir y ganas un tiempo.'],
+    ['Bxc4', 'Las blancas recuperan el peón.'],
+    ['Qc7', 'Preparas ...e5 con presión en el centro.']
+  ], 'Plan a seguir: sigue con ...e5 y presiona los peones doblados de c. Tu ventaja estructural está en las debilidades de las blancas.');
+  var nimB = X(nimA, 6, [
+    ['Qc2', 'Las blancas evitan los peones doblados.'],
+    ['O-O', 'Enrocas.'],
+    ['a3', 'Las blancas preguntan al alfil.'],
+    ['Bxc3', 'Cambias el alfil por el caballo: ahora la dama blanca recapturará.'],
+    ['Qxc3', 'Las blancas recapturan con la dama.'],
+    ['b6', 'Preparas el fianchetto y presionas e4.'],
+    ['Bg5', 'Las blancas clavan tu caballo.'],
+    ['Bb7', 'Desarrollas el alfil sobre la diagonal larga.'],
+    ['e3', 'Las blancas refuerzan el centro.'],
+    ['d6', 'Das aire a tus piezas y proteges tu centro.']
+  ], 'Plan a seguir: sigue con ...Nbd7 y ...Ne4, aprovechando que las blancas dejaron de tener la pareja de alfiles.');
+
+  var lucA = V([
+    ['Rd1', 'Das jaque para alejar al rey rival del peón y ganar un tiempo.'],
+    ['Ke7', 'El rey rival se aparta.'],
+    ['Rd4', 'Pones la torre en la cuarta fila: es el “puente” con el que taparás los jaques más adelante.'],
+    ['Ra1', 'El rival se aleja para dar jaques desde lejos.'],
+    ['Kc7', 'Sacas al rey de la octava fila: ahora el peón puede avanzar si logras evitar los jaques.'],
+    ['Rc1', 'El rival empieza a dar jaques.'],
+    ['Kb6', 'El rey sale del jaque acercándose a la columna del peón.'],
+    ['Rb1', 'El rival sigue dando jaques.'],
+    ['Kc6', 'El rey sigue subiendo, esquivando los jaques.'],
+    ['Rc1', 'El rival vuelve a dar jaque.'],
+    ['Kb5', 'El rey llega a la columna del peón, a una distancia desde la que podrás tapar el jaque.'],
+    ['Rb1', 'Último jaque del rival.'],
+    ['Rb4', 'Construyes el puente: la torre tapa el jaque en la cuarta fila y el rey queda protegido.'],
+    ['Rxb4', 'El rival captura la torre: ya no hay otra opción.'],
+    ['Kxb4', 'Recapturas con el rey: el peón queda libre para coronar.'],
+    ['Kd6', 'El rey rival está demasiado lejos para detener el peón.'],
+    ['b8=Q', 'Coronas el peón: tienes dama contra torre y el final está ganado.']
+  ], 'Plan a seguir: esta técnica funciona siempre que tu rey esté frente al peón en la octava fila, el rey rival esté cortado por una columna y tengas la torre libre. Recuerda: rey fuera, torre a la cuarta fila y puente.');
+
   var LIST = [
-    { id: 'italiana', title: 'Italiana (blancas)', side: 'w',
-      sub: 'Ataque tranquilo al punto débil f7',
-      plan: 'Plan a seguir: lleva el caballo de b1 hacia g3 por d2 y f1, y avanza d4 cuando tus piezas estén listas. Si el rival se desvía, mantén las mismas ideas: centro, desarrollo y rey a salvo.',
-      line: L([
-        ['e4', 'Ocupa el centro y abre líneas para el alfil de rey y la dama.'],
-        ['e5', 'El rival responde con la misma idea.'],
-        ['Nf3', 'Desarrolla un caballo y ataca el peón de e5.'],
-        ['Nc6', 'Defiende su peón desarrollando una pieza.'],
-        ['Bc4', 'El alfil apunta a f7, el punto más débil del rival, y prepara el enroque.'],
-        ['Bc5', 'El rival coloca su alfil de forma simétrica.'],
-        ['c3', 'Prepara el avance d4 para tener dos peones en el centro.'],
-        ['Nf6', 'Desarrolla atacando tu peón de e4.'],
-        ['d3', 'Defiende e4 de forma sólida y libera el alfil de c1. Es el plan tranquilo de esta apertura.'],
-        ['d6', 'Defiende su centro y libera su alfil.'],
-        ['O-O', 'Enroca: el rey queda a salvo y la torre se activa.'],
-        ['O-O', 'El rival también pone su rey a salvo.'],
-        ['Re1', 'La torre defiende e4 y apoya un futuro avance en el centro.'],
-        ['a6', 'El rival prepara retirar su alfil o jugar b5.'],
-        ['Bb3', 'Retiras el alfil a una casilla segura; sigue apuntando a f7 y evitas que lo ataquen con ...b5.'],
-        ['Ba7', 'El rival también retira su alfil.'],
-        ['h3', 'Quita la casilla g4 al alfil rival y evita clavar tu caballo de f3.']
-      ]) },
-    { id: 'londres', title: 'Sistema Londres (blancas)', side: 'w',
-      sub: 'Montaje fácil de recordar contra casi todo',
-      plan: 'Plan a seguir: enroca corto y busca la ruptura e4 (o Ne5). Este montaje con peones en c3, d4 y e3 y alfil en f4 sirve contra muchas respuestas.',
-      line: L([
-        ['d4', 'Ocupa el centro con el peón de dama y libera el alfil de c1.'],
-        ['d5', 'El rival también ocupa el centro.'],
-        ['Bf4', 'Saca el alfil de dama antes de cerrarlo con e3: es la idea del sistema Londres.'],
-        ['Nf6', 'Desarrolla un caballo y controla e4.'],
-        ['e3', 'Protege el alfil y abre el camino al alfil de rey.'],
-        ['e6', 'Abre la diagonal de su alfil de rey.'],
-        ['Nf3', 'Desarrolla el caballo y controla e5.'],
-        ['Bd6', 'El rival quiere cambiar tu alfil activo.'],
-        ['Bg3', 'Retiras el alfil: si lo cambia, recapturas con el peón de h y abres la columna h.'],
-        ['O-O', 'El rival enroca.'],
-        ['Nbd2', 'Desarrolla el otro caballo y prepara la ruptura e4.'],
-        ['c5', 'El rival ataca tu centro.'],
-        ['c3', 'Refuerza d4 y asegura el centro.'],
-        ['Nc6', 'Más presión sobre d4.'],
-        ['Bd3', 'Desarrolla el último alfil hacia el flanco de rey y prepara tu enroque.']
-      ]) },
-    { id: 'gambito', title: 'Gambito de dama (blancas)', side: 'w',
-      sub: 'Presión en el centro con peones y piezas',
-      plan: 'Plan a seguir: enroca, juega Bd3 o Qc2 y busca capturar en d5 cuando convenga. Si el rival acepta el gambito con ...dxc4, recupera el peón desarrollando rápido.',
-      line: L([
-        ['d4', 'Ocupa el centro y abre el alfil de dama.'],
-        ['d5', 'El rival también ocupa el centro.'],
-        ['c4', 'Ofreces un peón (gambito): si lo toma, no podrá conservarlo y tú ganas control del centro.'],
-        ['e6', 'Defiende d5 con un peón.'],
-        ['Nc3', 'Desarrolla un caballo y presiona el peón de d5.'],
-        ['Nf6', 'Desarrolla y defiende d5 otra vez.'],
-        ['Bg5', 'Clava el caballo que defiende d5: aumenta la presión sobre el centro rival.'],
-        ['Be7', 'El rival rompe la clavada y se prepara para enrocar.'],
-        ['e3', 'Apoya el centro y abre el camino al alfil de rey.'],
-        ['O-O', 'El rival enroca.'],
-        ['Nf3', 'Desarrolla el segundo caballo y controla e5.'],
-        ['Nbd7', 'El rival completa su desarrollo.']
-      ]) },
-    { id: 'francesa', title: 'Defensa Francesa (negras)', side: 'b',
-      sub: 'Respuesta sólida a 1.e4 con contraataque en el centro',
-      plan: 'Plan a seguir: presiona d4 con ...Nc6 y ...cxd4, y busca contraataque en el centro. Cuidado con el alfil de c8: es tu pieza más difícil de desarrollar.',
-      line: L([
-        ['e4', 'Las blancas abren con el peón de rey.'],
-        ['e6', 'Prepara d5 para disputar el centro con un peón sólido.'],
-        ['d4', 'Las blancas ocupan el centro.'],
-        ['d5', 'Atacas el peón de e4 y reclamas tu parte del centro.'],
-        ['Nc3', 'Las blancas defienden e4 desarrollando.'],
-        ['Nf6', 'Desarrollas atacando el peón de e4.'],
-        ['Bg5', 'Las blancas clavan tu caballo.'],
-        ['Be7', 'Rompes la clavada y preparas el enroque.'],
-        ['e5', 'Las blancas atacan tu caballo avanzando el peón.'],
-        ['Nfd7', 'El caballo se retira; desde allí ataca la cadena de peones blancos.'],
-        ['Bxe7', 'Las blancas cambian los alfiles.'],
-        ['Qxe7', 'Recapturas con la dama.'],
-        ['f4', 'Las blancas refuerzan el peón de e5.'],
-        ['O-O', 'Enrocas: tu rey queda a salvo.'],
-        ['Nf3', 'Las blancas desarrollan.'],
-        ['c5', 'Atacas la base de la cadena de peones blancos: el peón de d4.']
-      ]) },
-    { id: 'carokann', title: 'Defensa Caro-Kann (negras)', side: 'b',
-      sub: 'Estructura sólida y alfil bien colocado',
-      plan: 'Plan a seguir: desarrolla Ngf6, enroca y cambia piezas con calma. Tu estructura es muy sólida y casi no tiene debilidades.',
-      line: L([
-        ['e4', 'Las blancas abren con el peón de rey.'],
-        ['c6', 'Prepara d5 apoyándolo con el peón de c y deja libre la diagonal de tu alfil de dama.'],
-        ['d4', 'Las blancas ocupan el centro.'],
-        ['d5', 'Atacas el peón de e4.'],
-        ['Nc3', 'Las blancas defienden e4.'],
-        ['dxe4', 'Capturas para liberar tu alfil de dama.'],
-        ['Nxe4', 'Las blancas recuperan el peón.'],
-        ['Bf5', 'Sacas el alfil fuera de tu cadena de peones antes de jugar e6: es la idea clave de la Caro-Kann.'],
-        ['Ng3', 'Las blancas atacan tu alfil.'],
-        ['Bg6', 'Retiras el alfil manteniéndolo activo.'],
-        ['h4', 'Las blancas amenazan h5 para atrapar el alfil.'],
-        ['h6', 'Das aire al alfil: si llega h5, tendrá la casilla h7.'],
-        ['Nf3', 'Las blancas desarrollan.'],
-        ['Nd7', 'Desarrollas el caballo y preparas Ngf6.'],
-        ['h5', 'Las blancas atacan otra vez al alfil.'],
-        ['Bh7', 'El alfil queda a salvo en h7.'],
-        ['Bd3', 'Las blancas ofrecen cambiar los alfiles.'],
-        ['Bxd3', 'Cambias tu alfil por el suyo, que era el más activo.'],
-        ['Qxd3', 'Las blancas recapturan.'],
-        ['e6', 'Cierras tu estructura y completas un montaje sólido.']
-      ]) },
-    { id: 'indiarey', title: 'India de Rey (negras)', side: 'b',
-      sub: 'Contraataque contra un gran centro blanco',
-      plan: 'Plan a seguir: cuando las blancas abran el juego, ataca su centro con ...exd4 o ...c6, y usa el alfil de g7 como arma principal.',
-      line: L([
-        ['d4', 'Las blancas ocupan el centro.'],
-        ['Nf6', 'Controla e4 sin comprometer peones.'],
-        ['c4', 'Las blancas ganan más espacio.'],
-        ['g6', 'Prepara el fianchetto: el alfil irá a g7.'],
-        ['Nc3', 'Las blancas desarrollan.'],
-        ['Bg7', 'El alfil apunta al centro y a toda la diagonal larga.'],
-        ['e4', 'Las blancas construyen un gran centro de peones.'],
-        ['d6', 'Apoya la ruptura e5 y libera tu alfil de dama.'],
-        ['Nf3', 'Las blancas desarrollan.'],
-        ['O-O', 'Enrocas: el rey queda a salvo.'],
-        ['Be2', 'Las blancas preparan su enroque.'],
-        ['e5', 'Golpeas el centro blanco: es la ruptura típica de esta defensa.']
-      ]) }
+    { id: 'italiana', title: 'Italiana (blancas)', side: 'w', sub: 'Ataque tranquilo al punto débil f7', lines: [italA, italB] },
+    { id: 'londres', title: 'Sistema Londres (blancas)', side: 'w', sub: 'Montaje fácil de recordar contra casi todo', lines: [lonA, lonB] },
+    { id: 'gambito', title: 'Gambito de dama (blancas)', side: 'w', sub: 'Presión en el centro con peones y piezas', lines: [gamA, gamB] },
+    { id: 'ruy', title: 'Española o Ruy López (blancas)', side: 'w', sub: 'La apertura clásica, con planes largos', lines: [ruyA, ruyB] },
+    { id: 'inglesa', title: 'Apertura Inglesa (blancas)', side: 'w', sub: 'Control del centro desde el flanco', lines: [ingA] },
+    { id: 'escocesa', title: 'Escocesa (blancas)', side: 'w', sub: 'Abre el centro de inmediato', lines: [scoA] },
+    { id: 'francesa', title: 'Defensa Francesa (negras)', side: 'b', sub: 'Respuesta sólida a 1.e4 con contraataque en el centro', lines: [fraA, fraB] },
+    { id: 'carokann', title: 'Defensa Caro-Kann (negras)', side: 'b', sub: 'Estructura sólida y alfil bien colocado', lines: [carA, carB] },
+    { id: 'siciliana', title: 'Siciliana Najdorf (negras)', side: 'b', sub: 'La defensa más combativa contra 1.e4', lines: [najA, najB] },
+    { id: 'nimzo', title: 'Defensa Nimzoíndia (negras)', side: 'b', sub: 'Clavada y presión sobre el centro', lines: [nimA, nimB] },
+    { id: 'lucena', kind: 'final', fen: '1K1k4/1P6/8/8/8/8/r7/2R5 w - - 0 1', title: 'Final de torre: el puente de Lucena', side: 'w', sub: 'La posición ganadora más famosa de torre y peón', lines: [lucA] },
+    { id: 'indiarey', title: 'India de Rey (negras)', side: 'b', sub: 'Contraataque contra un gran centro blanco', lines: [indA] }
   ];
   return { LIST: LIST };
 })();
 if (typeof module !== 'undefined') module.exports = Openings;
+
+// Utilidades comunes del final de rey y peón contra rey (peón blanco).
+var KPKCore = (function (R) {
+  function pidx(sq) { return ((sq >> 3) - 1) * 8 + (sq & 7); }      // peón en filas 2..7 -> 0..47
+  function index(stm, wk, bk, p) { return ((stm * 64 + wk) * 64 + bk) * 48 + pidx(p); }
+  function adj(a, b) { return Math.abs((a >> 3) - (b >> 3)) <= 1 && Math.abs((a & 7) - (b & 7)) <= 1; }
+  function mkState(stm, wk, bk, p) {
+    var b = new Array(64).fill('');
+    b[wk] = 'K'; b[bk] = 'k'; b[p] = 'P';
+    return { b: b, turn: stm ? 'b' : 'w', c: { K: false, Q: false, k: false, q: false }, ep: -1, hm: 0, fm: 1 };
+  }
+  function valid(stm, wk, bk, p) {
+    if (wk === bk || wk === p || bk === p || adj(wk, bk)) return false;
+    var r = p >> 3;
+    if (r < 1 || r > 6) return false;
+    if (stm === 0) { var f = p & 7; if (r - 1 >= 0 && ((f > 0 && bk === (r - 1) * 8 + f - 1) || (f < 7 && bk === (r - 1) * 8 + f + 1))) return false; }
+    return true;
+  }
+  // Coronar con dama o torre: ¿gana? (el rey negro no puede capturar la pieza y no hay ahogado)
+  function promoWins(s, m) {
+    if (m.promo !== 'q' && m.promo !== 'r') return false;
+    var c = R.makeMove(s, m), moves = R.genLegal(c), i;
+    if (!moves.length) return R.inCheck(c, c.turn);
+    for (i = 0; i < moves.length; i++) if (moves[i].captured) return false;
+    return true;
+  }
+  return { pidx: pidx, index: index, adj: adj, mkState: mkState, valid: valid, promoWins: promoWins };
+})(typeof Rules !== 'undefined' ? Rules : require('./rules.js'));
+if (typeof module !== 'undefined') module.exports = KPKCore;
+
+var KPKDATA = 'AAAAAAAAAAAAAAAA8OLCggIC48eHBwcHx4cHBwcHjw8PDw8PHw8PDw8PPx8fHx8fAAAAAAAAAAAAAAAA8uDCggIC58OHBwcHx4cHBwcHjw8PDw8PHw8PDw8PPx8fHx8f//7w4MDA//DgwICA/+PAgAAA/8eDAwAA/4cHBwMB/w8PDwcD/w8PDw8H/x8fHx8P///84MDA///gwICA///BgAAA//+DAQAA//8HAwEB//8PBwMD//8PDwcH//8fHw8P////4MDA////wICA////gAAA////AQAA////AwEB////BwMD////DwcH////Hw8P/////8DA/////4CA/////wAA/////wAA/////wEB/////wMD/////wcH/////w8P///////+///////9///////7///////3///////v///////f//////+///////9/////////////////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAA48eHBwcHx48PDw8Pjw8PDw8PHx8fHx8fPx8fHx8fAAAAAAAAAAAAAAAAAAAAAAAA58OHBwcHz4cPDw8Pjw8PDw8PHx8fHx8fPx8fHx8f//78/Pjw//3gwICA/+PBgAAA/8eDAwAA/48HBwMB/w8PDwcD/x8fHw8H/x8fHx8P///8+PDw///4wICA///BgAAA//+DAQAA//8HAwEB//8PBwMD//8fDwcH//8fHw8P////+PDw////wICA////gAAA////AQAA////AwEB////BwMD////DwcH////Hw8P//////Dw/////4CA/////wAA/////wAA/////wEB/////wMD/////wcH/////w8P///////+///////9///////7///////3///////v///////f//////+///////9//////////////////////////////////////////////////////////////////P7+/v7+AAAAAAAAAAAAAAAAAAAAAAAAx48PDw8Pjx8fHx8fHx8fHx8fPz8/Pz8//vz+/v7+AAAAAAAAAAAAAAAAAAAAAAAAz4cPDw8Pnw8fHx8fHx8fHx8fPz8/Pz8///78/Pjw//z4+PDg//vAgAAA/8eDAwAA/48HBwMB/x8PDwcD/x8fHw8H/z8/Px8P///8+PDw///48ODg///xgAAA//+DAQAA//8HAwEB//8PBwMD//8fDwcH//8/Hw8P////+PDw////8ODg////gAAA////AQAA////AwEB////BwMD////DwcH////Hw8P//////Dw/////+Dg/////wAA/////wAA/////wEB/////wMD/////wcH/////w8P///////+///////9///////7///////3///////v///////f//////+///////9//////////////////////////////////////////////////////////////////Pz+/v7++Pz8/Pz8AAAAAAAAAAAAAAAAAAAAAAAAjx8fHx8fHz8/Pz8/Pz8/Pz8//vz+/v7+/Pj8/Pz8AAAAAAAAAAAAAAAAAAAAAAAAnw8fHx8fPx8/Pz8/Pz8/Pz8///78/Pjw//z4+PDg//jw8ODA//eAAAAA/48HBwMB/x8PDwcD/z8fHw8H/z8/Px8P///8+PDw///48ODg///w4MDA///jAAAA//8HAwEB//8PBwMD//8fDwcH//8/Hw8P////+PDw////8ODg////4MDA////AAAA////AwEB////BwMD////DwcH////Hw8P//////Dw/////+Dg/////8DA/////wAA/////wEB/////wMD/////wcH/////w8P///////+///////9///////7///////3///////v///////f//////+///////9//////////////////////////////////////////////////////////////////Pz8/Pz8+Pz8/Pz88fj4+Pj4AAAAAAAAAAAAAAAAAAAAAAAAHz8/Pz8/Pz9/f39//Pz8/Pz8/Pj8/Pz8+fD4+Pj4AAAAAAAAAAAAAAAAAAAAAAAAPx8/Pz8/fz9/f39///z8/Pjw//z4+PDg//jw8ODA//Hg4MCA/+8BAAAA/x8PDwcD/z8fHw8H/38/Px8P///8+PDw///48ODg///w4MDA///gwICA///HAAAA//8PBwMD//8fDwcH//8/Hw8P////+PDw////8ODg////4MDA////wICA////AAAA////BwMD////DwcH////Hw8P//////Dw/////+Dg/////8DA/////4CA/////wAA/////wMD/////wcH/////w8P///////+///////9///////7///////3///////v///////f//////+///////9//////////////////////////////////////////////////////////////////Pz8/Pz8+Pj4+Pj48fj4+Pj44/Hw8PDwAAAAAAAAAAAAAAAAAAAAAAAAP39/f39//Pz8/Pz8+Pj4+Pj4+fD4+Pj48+Hw8PDwAAAAAAAAAAAAAAAAAAAAAAAAfz9/f39///z8/Pjw//j4+PDg//jw8ODA//Hg4MCA/+PBwAAA/98DAQAA/z8fHw8H/38/Px8P///8+PDw///48ODg///w4MDA///gwICA///BgAAA//+PAQAA//8fDwcH//8/Hw8P////+PDw////8ODg////4MDA////wICA////gAAA////AQAA////DwcH////Hw8P//////Dw/////+Dg/////8DA/////4CA/////wAA/////wAA/////wcH/////w8P///////+///////9///////7///////3///////v///////f//////+///////9//////////////////////////////////////////////////////////////////Pj4+Pj4+Pj4+Pj48fDw8PDw4/Hw8PDwx+Ph4ODgAAAAAAAAAAAAAAAAAAAAAAAA/Pj4+Pj4+Pj4+Pj48fDw8PDw8+Hw8PDw58Ph4ODgAAAAAAAAAAAAAAAAAAAAAAAA//j4+Pjw//j4+PDg//Dw8ODA//Hg4MCA/+PBwAAA/8eDAQAA/78HAwEB/38/Px8P///4+PDw///48ODg///w4MDA///gwICA///BgAAA//+DAQAA//8fAwEB//8/Hw8P////+PDw////8ODg////4MDA////wICA////gAAA////AQAA////AwEB////Hw8P//////Dw/////+Dg/////8DA/////4CA/////wAA/////wAA/////wEB/////w8P///////+///////9///////7///////3///////v///////f//////+///////9//////////////////////////////////////////////////////////////////Pj4+Pj4+PDw8PDw8fDw8PDw4+Hg4ODgx+Ph4ODgD0dDQUBAAAAAAAAAAAAAAAAA/Pj4+Pj4+PDw8PDw8fDw8PDw4+Hg4ODg58Ph4ODgTwdDQUBAAAAAAAAAAAAAAAAA//j4+Pjw//Dw8PDg//Dw8ODA/+Hg4MCA/+PBwAAA/8cDAQAA/w8HAwEB/38PBwMD///4+PDw///w8ODg///w4MDA///gwICA///BgAAA//+DAQAA//8HAwEB//8/BwMD////+PDw////8ODg////4MDA////wICA////gAAA////AQAA////AwEB////BwMD//////Dw/////+Dg/////8DA/////4CA/////wAA/////wAA/////wEB/////wMD///////+///////9///////7///////3///////v///////f//////+///////9/////////////////////////////////////////////////////////////////AAAAAAAAAAAAAAAA9OLGhg4e4seHBw8fxocHBw8fjg8PDw8fHg8PDw8fPh8fHx8fAAAAAAAAAAAAAAAA8uDCggIC5sOHBwcHxocHBwcHjg8PDw8PHg8PDw8PPh8fHx8fAAAAAAAAAAAAAAAA/uPAggIC/seDBwcH/ocHBwcH/g8PDw8P/g8PDw8P/h8fHx8f/v/+4MDA/v/hwICA/v/DgAAA/v+HAwMB/v8HBwcD/v8PDw8H/v8PDw8P/v8fHx8f/v///MDA/v//wICA/v//gQAA/v//AwEB/v//BwMD/v//DwcH/v//Dw8P/v//Hx8f/v///8DA/v///4CA/v///wAA/v///wEB/v///wMD/v///wcH/v///w8P/v///x8f/v/////+/v/////9/v/////7/v/////3/v/////v/v/////f/v////+//v////9//v///////v///////v///////v///////v///////v///////v///////v//////AAAAAAAAAAAAAAAAAAAAAAAA6cePDx8/xY8PDx8/jQ8PDx8/HR8fHx8/PR8fHx8/AAAAAAAAAAAAAAAAAAAAAAAA5cOHBwcHzYcPDw8PjQ8PDw8PHR8fHx8fPR8fHx8fAAAAAAAAAAAAAAAAAAAAAAAA/ceDBwcH/Y8HDw8P/Q8PDw8P/R8fHx8f/R8fHx8f/f/+/Pz4/f/9wICA/f/DgQAA/f+HAwMB/f8PBwcD/f8PDw8H/f8fHx8P/f8fHx8f/f///Pj4/f//+ICA/f//gQAA/f//AwEB/f//BwMD/f//DwcH/f//Hw8P/f//Hx8f/f////j4/f///4CA/f///wAA/f///wEB/f///wMD/f///wcH/f///w8P/f///x8f/f/////+/f/////9/f/////7/f/////3/f/////v/f/////f/f////+//f////9//f///////f///////f///////f///////f///////f///////f///////f//////+P7+/v7+AAAAAAAAAAAAAAAAAAAAAAAA048fHz9/ix8fHz9/Gx8fHz9/Oz8/Pz9/+vz+/v7+AAAAAAAAAAAAAAAAAAAAAAAAy4cPDw8Pmw8fHx8fGx8fHx8fOz8/Pz8/+/78/v7+AAAAAAAAAAAAAAAAAAAAAAAA+48HDw8P+x8PHx8f+x8fHx8f+z8/Pz8/+//+/Pz4+//8+Pjw+//7gAAA+/+HAwMB+/8PBwcD+/8fDw8H+/8fHx8P+/8/Pz8f+////Pj4+///+PDw+///8QAA+///AwEB+///BwMD+///DwcH+///Hw8P+///Px8f+/////j4+/////Dw+////wAA+////wEB+////wMD+////wcH+////w8P+////x8f+//////++//////9+//////7+//////3+//////v+//////f+/////+/+/////9/+///////+///////+///////+///////+///////+///////+///////+///////9P7+/v7+8vz+/v7+AAAAAAAAAAAAAAAAAAAAAAAApx8/P39/Fz8/P39/Nz8/P39/9vz+/v7+9Pj8/Pz8AAAAAAAAAAAAAAAAAAAAAAAAlw8fHx8fNx8/Pz8/Nz8/Pz8/9/78/v7+9/z4/Pz8AAAAAAAAAAAAAAAAAAAAAAAA9x8PHx8f9z8fPz8/9z8/Pz8/9//+/Pz49//8+Pjw9//48PDg9//3AAAA9/8PBwcD9/8fDw8H9/8/Hx8P9/8/Pz8f9////Pj49///+PDw9///8ODg9///4wAA9///BwMD9///DwcH9///Hw8P9///Px8f9/////j49/////Dw9////+Dg9////wAA9////wMD9////wcH9////w8P9////x8f9//////+9//////99//////79//////39//////v9//////f9/////+/9/////9/9///////9///////9///////9///////9///////9///////9///////9///////7Pz8/P7+6Pz8/P7+5fj8/P7+AAAAAAAAAAAAAAAAAAAAAAAATz9/f39/L39/f39/7Pz8/Pz87Pj8/Pz86fD4+Pj4AAAAAAAAAAAAAAAAAAAAAAAALx8/Pz8/bz9/f39/7/z8/Pz87/z4/Pz87/jw+Pj4AAAAAAAAAAAAAAAAAAAAAAAA7z8fPz8/738/f39/7//8/Pz47//8+Pjw7//48PDg7//w4ODA7//vAAAA7/8fDw8H7/8/Hx8P7/9/Pz8f7////Pj47///+PDw7///8ODg7///4MDA7///xwAA7///DwcH7///Hw8P7///Px8f7/////j47/////Dw7////+Dg7////8DA7////wAA7////wcH7////w8P7////x8f7//////+7//////97//////77//////37//////v7//////f7/////+/7/////9/7///////7///////7///////7///////7///////7///////7///////7///////3Pz8/Pz+2Pj4+Pz+0fj4+Pz+y/H4+Pz+AAAAAAAAAAAAAAAAAAAAAAAAH39/f39/3Pz8/Pz82Pj4+Pj42fD4+Pj40+Hw8PDwAAAAAAAAAAAAAAAAAAAAAAAAXz9/f39/3/z8/Pz83/j4+Pj43/jw+Pj43/Hg8PDwAAAAAAAAAAAAAAAAAAAAAAAA338/f39/3//8/Pz43//4+Pjw3//48PDg3//w4ODA3//hwMCA3//fAQAA3/8/Hx8P3/9/Pz8f3////Pj43///+PDw3///8ODg3///4MDA3///wICA3///jwAA3///Hw8P3///Px8f3/////j43/////Dw3////+Dg3////8DA3////4CA3////wAA3////w8P3////x8f3//////+3//////93//////73//////33//////v3//////f3/////+/3/////9/3///////3///////3///////3///////3///////3///////3///////3///////vPj4+Pj8uPj4+Pj8sfDw8Pj8o/Hw8Pj8l+Px8Pj8AAAAAAAAAAAAAAAAAAAAAAAAvPj4+Pj4uPj4+Pj4sfDw8PDws+Hw8PDwp8Ph4ODgAAAAAAAAAAAAAAAAAAAAAAAAv/j4+Pj4v/j4+Pj4v/Dw8PDwv/Hg8PDwv+PB4ODgAAAAAAAAAAAAAAAAAAAAAAAAv//4+Pj4v//4+Pjwv//w8PDgv//w4ODAv//hwMCAv//DgQAAv/+/AwEBv/9/Pz8fv///+Pj4v///+PDwv///8ODgv///4MDAv///wICAv///gQAAv///HwEBv///Px8fv/////j4v/////Dwv////+Dgv////8DAv////4CAv////wAAv////wEBv////x8fv//////+v//////9v//////7v//////3v//////vv//////fv/////+/v/////9/v///////v///////v///////v///////v///////v///////v///////v///////fPj4+Pj4ePDw8PD4cfDw8PD4Y+Hg4PD4R+Ph4PD4L0djYXB4AAAAAAAAAAAAAAAAfPj4+Pj4ePDw8PDwcfDw8PDwY+Hg4ODgZ8Ph4ODgTwdDQUBAAAAAAAAAAAAAAAAAf/j4+Pj4f/Dw8PDwf/Dw8PDwf+Hg4ODgf+PB4ODgf8cDQUBAAAAAAAAAAAAAAAAAf//4+Pj4f//w8PDwf//w8PDgf//g4ODAf//hwMCAf//DAQAAf/+HAwEBf/9/BwMDf///+Pj4f///8PDwf///8ODgf///4MDAf///wICAf///gQAAf///AwEBf///PwMDf/////j4f/////Dwf////+Dgf////8DAf////4CAf////wAAf////wEBf////wMDf//////+f//////9f//////7f//////3f//////vf//////ff/////+/f/////9/f///////f///////f///////f///////f///////f///////f///////f////////Pz+/v7++P7+/v7+9eLGhg4e48aHBw8fx4YHBw8fjw4PDw8fHw4PDw8fPx4fHx8fAAAAAAAAAAAAAAAA8+DCggYO58KHBwcPx4YHBwcPjw4PDw8PHw4PDw8PPx4fHx8fAAAAAAAAAAAAAAAA/+LAggIC/8aDBwcH/4YHBwcH/w4PDw8P/w4PDw8P/x4fHx8fAAAAAAAAAAAAAAAA//7DgAIC//6HAwcH//4HBwcH//4PDw8P//4PDw8P//4fHx8f//7//sDA//7/wYCA//7/gwAA//7/BwMD//7/BwcH//7/Dw8P//7/Dw8P//7/Hx8f//7///z8//7//4D4//7//wEB//7//wMD//7//wcH//7//w8P//7//w8P//7//x8f//7////+//7////9//7////7//7////3//7////v//7////f//7///+///7///9///7///////7///////7///////7///////7///////7///////7///////7//////Pz+/v7++vj+/v7+8f3+/n5+68WPDx8/x40PDx8/jw0PDx8/Hx0fHx8/Px0fHx8/AAAAAAAAAAAAAAAAAAAAAAAA58GHBw8fz4UPDw8fjw0PDw8fHx0fHx8fPx0fHx8fAAAAAAAAAAAAAAAAAAAAAAAA/8WDBwcH/40HDw8P/w0PDw8P/x0fHx8f/x0fHx8fAAAAAAAAAAAAAAAAAAAAAAAA//2HAwcH//0PBw8P//0PDw8P//0fHx8f//0fHx8f//3//vz8//3//YCA//3/gwEB//3/BwMD//3/DwcH//3/Dw8P//3/Hx8f//3/Hx8f//3///z8//3///j4//3//wHx//3//wMD//3//wcH//3//w8P//3//x8f//3//x8f//3////+//3////9//3////7//3////3//3////v//3////f//3///+///3///9///3///////3///////3///////3///////3///////3///////3///////3//////Pj+/v7++Pr+/v7+9fH+/n5+4/v/f39/14sfHz9/jxsfHz9/HxsfHz9/Pzs/Pz9//vj+/v7+AAAAAAAAAAAAAAAAAAAAAAAAz4MPDx8/nwsfHx8/HxsfHx8/Pzs/Pz8///r8/v7+AAAAAAAAAAAAAAAAAAAAAAAA/4sHDw8P/xsPHx8f/xsfHx8f/zs/Pz8///v+/P7+AAAAAAAAAAAAAAAAAAAAAAAA//sPBw8P//sfDx8f//sfHx8f//s/Pz8///v//vz8//v//Pj4//v/+wAA//v/BwMD//v/DwcH//v/Hw8P//v/Hx8f//v/Pz8///v///z8//v///j4//v///Hx//v//wPj//v//wcH//v//w8P//v//x8f//v//z8///v////+//v////9//v////7//v////3//v////v//v////f//v///+///v///9///v///////v///////v///////v///////v///////v///////v///////v//////Pb+/v7++vT+/v7+8fb+/v7+6+P+fn5+x/d/f39/rxc/P39/Hzc/P39/Pzc/P39//vT+/v7+/PD8/P7+AAAAAAAAAAAAAAAAAAAAAAAAnwcfHz9/Pxc/Pz9/Pzc/Pz9///b8/v7+//T4/Pz8AAAAAAAAAAAAAAAAAAAAAAAA/xcPHx8f/zcfPz8//zc/Pz8///f+/P7+//f8+Pz8AAAAAAAAAAAAAAAAAAAAAAAA//cfDx8f//c/Hz8///c/Pz8///f//vz8//f//Pj4//f/+PDw//f/9wAA//f/DwcH//f/Hw8P//f/Px8f//f/Pz8///f///z8//f///j4//f///Dx//f//+Pj//f//wfH//f//w8P//f//x8f//f//z8///f////+//f////9//f////7//f////3//f////v//f////f//f///+///f///9///f///////f///////f///////f///////f///////f///////f///////f//////Oz8/P7++Oz8/P7+9ej8/P7+4+/+/v7+18d/fn5+j29/f39/Xy9/f39/P29/f39//Oz8/Pz+/Oj8/Pz++eD4+Pz+AAAAAAAAAAAAAAAAAAAAAAAAPw8/P39/fy9/f39//+z8/Pz8/+z4/Pz8/+jw+Pj4AAAAAAAAAAAAAAAAAAAAAAAA/y8fPz8//28/f39//+/8/Pz8/+/8+Pz8/+/48Pj4AAAAAAAAAAAAAAAAAAAAAAAA/+8/Hz8//+9/P39//+///Pz8/+///Pj4/+//+PDw/+//8ODg/+//7wAA/+//Hw8P/+//Px8f/+//fz8//+////z8/+////j4/+////Dw/+///+Dj/+///8fH/+///w+P/+///x8f/+///z8//+/////+/+/////9/+/////7/+/////3/+/////v/+/////f/+////+//+////9//+///////+///////+///////+///////+///////+///////+///////+///////Nz8/Pz++Nj4+Pz+8dj4+Pz+69H4+Pz+x9///v7+r49/f35+H19/f39/Px9/f39//Nz8/Pz8+Nj4+Pj8+dD4+Pj888Hw8Pj8AAAAAAAAAAAAAAAAAAAAAAAAfx9/f39//9z8/Pz8/9j4+Pj4/9jw+Pj4/9Hg8PDwAAAAAAAAAAAAAAAAAAAAAAAA/18/f39//9/8/Pz8/9/4+Pj4/9/48Pj4/9/w4PDwAAAAAAAAAAAAAAAAAAAAAAAA/99/P39//9///Pz8/9//+Pj4/9//+PDw/9//8ODg/9//4MDA/9//3wAA/9//Px8f/9//fz8//9////z8/9////j4/9////Dw/9///+Dg/9///8DH/9///4+P/9///x8f/9///z8//9/////+/9/////9/9/////7/9/////3/9/////v/9/////f/9////+//9////9//9///////9///////9///////9///////9///////9///////9///////9///////Lj4+Pj8+Lj4+Pj88bDw8Pj847Hw8Pj816Px8Pj8j79/f35+Xx9/f39/Pz9/f39//Lj4+Pj4+Lj4+Pj48bDw8PD486Hw8PD454Ph4PD4AAAAAAAAAAAAAAAAAAAAAAAA/7j4+Pj4/7j4+Pj4/7Dw8PDw/7Hg8PDw/6PB4ODgAAAAAAAAAAAAAAAAAAAAAAAA/7/4+Pj4/7/4+Pj4/7/w8PDw/7/w4PDw/7/hwODgAAAAAAAAAAAAAAAAAAAAAAAA/7//+Pj4/7//+Pj4/7//8PDw/7//8ODg/7//4MDA/7//wYCA/7//vwEB/7//fz8//7////j4/7////j4/7////Dw/7///+Dg/7///8DA/7///4CP/7///x8f/7///z8//7/////+/7/////9/7/////7/7/////3/7/////v/7/////f/7////+//7////9//7///////7///////7///////7///////7///////7///////7///////7///////Hj4+Pj4+HDw8PD48XDw8PD442Hg4PD4x2Ph4PD4r0djYXB4H39/f39/Pz9/f39//Hj4+Pj4+HDw8PDw8XDw8PDw42Hg4ODw50Ph4ODwzwdDQWBwAAAAAAAAAAAAAAAA/3j4+Pj4/3Dw8PDw/3Dw8PDw/2Hg4ODg/2PB4ODg/0cDQUBAAAAAAAAAAAAAAAAA/3/4+Pj4/3/w8PDw/3/w8PDw/3/g4ODg/3/hwODg/3/DAUBAAAAAAAAAAAAAAAAA/3//+Pj4/3//8PDw/3//8PDw/3//4ODg/3//4MDA/3//wQAA/3//gwEB/3//fwMD/3////j4/3////Dw/3////Dw/3///+Dg/3///8DA/3///4CA/3///wEf/3///z8//3/////+/3/////9/3/////7/3/////3/3/////v/3/////f/3////+//3////9//3///////3///////3///////3///////3///////3///////3///////3///////P7+/v7++vz+/v7+9eLGhg4e48eGBg4ex4cGBw8fjw8ODw8fHw8ODw8fPx8eHx8f/Pz84P7++Pjg/v7+8eDCggYO48OGBgYOx4cGBwcPjw8ODw8PHw8ODw8PPx8eHx8fAAAAAAAAAAAAAAAA/+LAggIG/8eCBwcH/4cGBwcH/w8ODw8P/w8ODw8P/x8eHx8fAAAAAAAAAAAAAAAA///CgAIC//+GAwcH//8GBwcH//8ODw8P//8ODw8P//8eHx8fAAAAAAAAAAAAAAAA///+gwAC///+BwMH///+BwcH///+Dw8P///+Dw8P///+Hx8f///+//78///+/4H4///+/wMB///+/wcD///+/wcH///+/w8P///+/w8P///+/x8f///+///+///+///9///+///7///+///3///+///v///+///f///+//+////+//9////+///////+///////+///////+///////+///////+///////+///////+/////P78/v7++vz8/v7+9fr8/n5+68eMDh4+x48NDx8/jw8NDx8/Hx8dHx8/Px8dHx8//Pz8/v7++Pj4wP7+8fDA/n5+48OEBg4ex4cNDw8fjw8NDw8fHx8dHx8fPx8dHx8fAAAAAAAAAAAAAAAAAAAAAAAA/8eBBwcP/48FDw8P/w8NDw8P/x8dHx8f/x8dHx8fAAAAAAAAAAAAAAAAAAAAAAAA//+FAwcH//8NBw8P//8NDw8P//8dHx8f//8dHx8fAAAAAAAAAAAAAAAAAAAAAAAA///9BwMH///9DwcP///9Dw8P///9Hx8f///9Hx8f///9//78///9//34///9/wPx///9/wcD///9/w8H///9/w8P///9/x8f///9/x8f///9///+///9///9///9///7///9///3///9///v///9///f///9//+////9//9////9///////9///////9///////9///////9///////9///////9///////9/////P76/v7++vz6/v7+9fr6/n5+6/f6fn5+148bHz9/jx8bHz9/Hx8bHz9/Pz87Pz9//Pz6/v7++Pj4/v7+8fDwgH5+4+OCfn5+x4cLDx8/jw8bHx8/Hx8bHx8/Pz87Pz8///74/v7+AAAAAAAAAAAAAAAAAAAAAAAA/48DDw8f/x8LHx8f/x8bHx8f/z87Pz8////6/P7+AAAAAAAAAAAAAAAAAAAAAAAA//8LBw8P//8bDx8f//8bHx8f//87Pz8////7/vz+AAAAAAAAAAAAAAAAAAAAAAAA///7DwcP///7Hw8f///7Hx8f///7Pz8////7//78///7//z4///7//vx///7/wfj///7/w8H///7/x8P///7/x8f///7/z8////7///+///7///9///7///7///7///3///7///v///7///f///7//+////7//9////7///////7///////7///////7///////7///////7///////7///////7/////P72/v7++vz2/v7+9fr2/v7+6/f2fn5+1+93f39/rx83P39/Hz83P39/Pz83P39//Pz2/v7++Pj0/P7+8fDw/v7+4+PiAH5+x8cHf39/jw8XHz9/Hx83Pz9/Pz83Pz9///70/v7+//zw/Pz+AAAAAAAAAAAAAAAAAAAAAAAA/x8HHx8//z8XPz8//z83Pz8////2/P7+///0+Pz8AAAAAAAAAAAAAAAAAAAAAAAA//8XDx8f//83Hz8///83Pz8////3/vz+///3/Pj8AAAAAAAAAAAAAAAAAAAAAAAA///3Hw8f///3Px8////3Pz8////3//78///3//z4///3//jx///3//fj///3/w/H///3/x8P///3/z8f///3/z8////3///+///3///9///3///7///3///3///3///v///3///f///3//+////3//9////3///////3///////3///////3///////3///////3///////3///////3/////Pzs/P7++Pzs/P7+9fjs/P7+6/fu/v7+1+9vfn5+r19vf39/Xz9vf39/P39vf39//Pzs/Pz++Pjs/Pz+8fDo+Pz+4+Pg/v7+x8dHAH5+jw8Pf39/Hx8vP39/Pz9vf39///zs/Pz8//zo/Pz8//jg+Pj8AAAAAAAAAAAAAAAAAAAAAAAA/z8PPz9//38vf39////s/Pz8///s+Pz8///o8Pj4AAAAAAAAAAAAAAAAAAAAAAAA//8vHz8///9vP39////v/Pz8///v/Pj8///v+PD4AAAAAAAAAAAAAAAAAAAAAAAA///vPx8////vfz9////v//z8///v//z4///v//jw///v//Dj///v/+/H///v/x+P///v/z8f///v/38////v///+///v///9///v///7///v///3///v///v///v///f///v//+////v//9////v///////v///////v///////v///////v///////v///////v///////v/////Pzc/Pz++PjY+Pz+8fjY+Pz+6/HY+Pz+1+9ffn5+r19ff35+Xz9ff39/P39ff39//Pzc/Pz8+PjY+Pj88fDY+Pj84+HQ8Pj8x8dBfn5+jw8PAX5+Hx8ff39/Pz9ff39///zc/Pz8//jY+Pj4//jQ+Pj4//HA8PD4AAAAAAAAAAAAAAAAAAAAAAAA/38ff39////c/Pz8///Y+Pj4///Y8Pj4///Q4PDwAAAAAAAAAAAAAAAAAAAAAAAA//9fP39////f/Pz8///f+Pj4///f+PD4///f8ODwAAAAAAAAAAAAAAAAAAAAAAAA///ffz9////f//z8///f//j4///f//jw///f//Dg///f/+DH///f/9+P///f/z8f///f/38////f///+///f///9///f///7///f///3///f///v///f///f///f//+////f//9////f///////f///////f///////f///////f///////f///////f///////f/////Pi4+Pj8+Pi4+Pj88fCw8Pj84/Gw8Pj81+MxcHh8r18/f35+Xz8/f39/P38/f39//Pi4+Pj4+Pi4+Pj48fCw8PD44+Gw8PD4x8MhYHB4jw8Df35+Hx8fA39/Pz8/f39///i4+Pj4//i4+Pj4//Cw8PDw//Gg8PDw/+OB4ODwAAAAAAAAAAAAAAAAAAAAAAAA//+4+Pj4//+4+Pj4//+w8PDw//+w4PDw//+hwODgAAAAAAAAAAAAAAAAAAAAAAAA//+/+Pj4//+/+Pj4//+/8PDw//+/8ODw//+/4MDgAAAAAAAAAAAAAAAAAAAAAAAA//+///j4//+///j4//+///Dw//+///Dg//+//+DA//+//8CP//+//78f//+//38///+////+//+////9//+////7//+////3//+////v//+////f//+///+///+///9///+///////+///////+///////+///////+///////+///////+///////+//////Ph4+Pj4+PBw8PD48fBw8PD44+Fg4PD4x+NhYHB4r0djYXB4Xz9/f39/P39/f39//Ph4+Pj4+PBw8PDw8fBw8PDw4+Fg4ODwx8NhYGBwjwdDQWBwHx8Hf39/Pz8/B39///h4+Pj4//Bw8PDw//Bw8PDw/+Fg4ODg/+NB4ODg/0cDQUBgAAAAAAAAAAAAAAAA//94+Pj4//9w8PDw//9w8PDw//9g4ODg//9hwODg//9DAUBAAAAAAAAAAAAAAAAA//9/+Pj4//9/8PDw//9/8PDw//9/4ODg//9/4MDg//9/wQBAAAAAAAAAAAAAAAAA//9///j4//9///Dw//9///Dw//9//+Dg//9//+DA//9//8CA//9//4Ef//9//38///9////+//9////9//9////7//9////3//9////v//9////f//9///+///9///9///9///////9///////9///////9///////9///////9///////9///////9//////Pz44P7++PjgwP7+8eDAgg4e48OCBg4ex4cHBg4ejw8PDg8fHw8PDg8fPx8fHh8f/Pz4/v7++Pjg/v7+8eDAggYO48OCBgYOx4cHBgYOjw8PDg8PHw8PDg8PPx8fHh8f//jw4MD+//DgwP7+/+DAggIG/8OCBgYG/4cHBgYG/w8PDg8P/w8PDg8P/x8fHh8fAAAAAAAAAAAAAAAA///CgAIC//+HAgcH//8HBgcH//8PDg8P//8PDg8P//8fHh8fAAAAAAAAAAAAAAAA////ggAC////BgMH////BgcH////Dg8P////Dg8P////Hh8fAAAAAAAAAAAAAAAA/////gMB/////gcD/////gcH/////g8P/////g8P/////h8f/////v/+/////v/9/////v/7/////v/3/////v/v/////v/f/////v+//////v9//////v///////v///////v///////v///////v///////v///////v///////v///Pz4/P7++PjwwP7+8fDAgH5+48OCBB4+x4cHDB4+jw8PDR8/Hx8fHR8/Px8fHR8//Pz4/P7++Pjw/P7+8fDA/H5+48OCBA4ex4cHDA4ejw8PDQ8fHx8fHR8fPx8fHR8f//z4/P7+//DgwID+/+DAgH5+/8OCBAYO/4cHDA4O/w8PDQ8P/x8fHR8f/x8fHR8fAAAAAAAAAAAAAAAAAAAAAAAA//+HAQcH//8PBQ8P//8PDQ8P//8fHR8f//8fHR8fAAAAAAAAAAAAAAAAAAAAAAAA////BQMH////DQcP////DQ8P////HR8f////HR8fAAAAAAAAAAAAAAAAAAAAAAAA/////QcD/////Q8H/////Q8P/////R8f/////R8f/////f/+/////f/9/////f/7/////f/3/////f/v/////f/f/////f+//////f9//////f///////f///////f///////f///////f///////f///////f///////f///Pz8+v7++Pjw+P7+8fDggH5+4+OAAn5+x4cHCj5+jw8PGz9/Hx8fGz9/Pz8/Oz9//Pz8+v7++Pjw+v7+8fDg+n5+4+OAen5+x4cHCh4+jw8PGx8/Hx8fGx8/Pz8/Oz8///z8+v7+//jw+P7+/+DAgAB+/8OAAn5+/4cHCg4e/w8PGx8f/x8fGx8f/z8/Oz8////++P7+AAAAAAAAAAAAAAAAAAAAAAAA//8PAw8P//8fCx8f//8fGx8f//8/Oz8/////+vz+AAAAAAAAAAAAAAAAAAAAAAAA////CwcP////Gw8f////Gx8f////Oz8/////+/78AAAAAAAAAAAAAAAAAAAAAAAA////+w8H////+x8P////+x8f////+z8/////+//+////+//9////+//7////+//3////+//v////+//f////+/+/////+/9/////+///////+///////+///////+///////+///////+///////+///////+////Pz89v7++Pj49P7+8fDg8P7+4+PAAH5+x8cDBn5+jw8PF39/Hx8fN39/Pz8/N39//Pz89v7++Pj49P7+8fDg9v7+4+PAdn5+x8cDdn5+jw8PFz9/Hx8fNz9/Pz8/Nz9///z89v7+//j49Pz+//Dg8P7+/8GAAAB+/4cDBn5+/w8PFx8//x8fNz8//z8/Nz8////+9P7+///88Pz8AAAAAAAAAAAAAAAAAAAAAAAA//8fBx8f//8/Fz8///8/Nz8/////9vz+////9Pj8AAAAAAAAAAAAAAAAAAAAAAAA////Fw8f////Nx8/////Nz8/////9/78////9/z4AAAAAAAAAAAAAAAAAAAAAAAA////9x8P////9z8f////9z8/////9//+////9//9////9//7////9//3////9//v////9//f////9/+/////9/9/////9///////9///////9///////9///////9///////9///////9///////9////Pz87P7++Pj47P7+8fDw6P7+4+PAYH5+x8cDAH5+jw8HD39/Hx8fL39/Pz8/b39//Pz87Pz++Pj47Pz+8fDw6Pz+4+PAbn5+x8cDbn5+jw8Hb39/Hx8fL39/Pz8/b39///z87Pz8//j47Pz8//Dw6Pj8/+HAYH5+/4MBAAB+/w8HD39//x8fLz9//z8/b39////87Pz8///86Pz8///44Pj4AAAAAAAAAAAAAAAAAAAAAAAA//8/Dz8///9/L39/////7Pz8////7Pj8////6PD4AAAAAAAAAAAAAAAAAAAAAAAA////Lx8/////bz9/////7/z8////7/z4////7/jwAAAAAAAAAAAAAAAAAAAAAAAA////7z8f////738/////7//+////7//9////7//7////7//3////7//v////7//f////7/+/////7/9/////7///////7///////7///////7///////7///////7///////7///////7////Pz83Pz++Pj42Pz+8fDw2Pz+4+HgUHx+x8cBQH5+jw8HAX5+Hx8PH39/Pz8/X39//Pz83Pz8+Pj42Pj88fDw2Pj84+HgUHh8x8cBXn5+jw8HX35+Hx8PX39/Pz8/X39///z83Pz8//j42Pj4//Dw2Pj4/+HgUHB4/8MBQH5+/wcDAQB+/x8PH39//z8/X39////83Pz8///42Pj4///40Pj4///wwPDwAAAAAAAAAAAAAAAAAAAAAAAA//9/H39/////3Pz8////2Pj4////2PD4////0ODwAAAAAAAAAAAAAAAAAAAAAAAA////Xz9/////3/z8////3/j4////3/jw////3/DgAAAAAAAAAAAAAAAAAAAAAAAA////338/////3//+////3//9////3//7////3//3////3//v////3//f////3/+/////3/9/////3///////3///////3///////3///////3///////3///////3///////3////Pj4uPj8+Pj4uPj88fDwsPj84+HgMHh8x8NBIHh8jw8DAX5+Hx8PA39/Pz8fP39//Pj4uPj4+Pj4uPj48fDwsPD44+HgMHB4x8NBIHB4jw8DP35+Hx8PP39/Pz8fP39///j4uPj4//j4uPj4//DwsPDw/+HgMHBw/8NBIGBw/wcDAX5+/w8HAwF//z8fP39////4uPj4///4uPj4///wsPDw///woPDw///hgODgAAAAAAAAAAAAAAAAAAAAAAAA////uPj4////uPj4////sPDw////sODw////oMDgAAAAAAAAAAAAAAAAAAAAAAAA////v/j4////v/j4////v/Dw////v/Dg////v+DAAAAAAAAAAAAAAAAAAAAAAAAA////v//+////v//9////v//7////v//3////v//v////v//f////v/+/////v/9/////v///////v///////v///////v///////v///////v///////v///////v////Pj4ePj4+PDwcPD48fDwcPD44+HgYHB4x8NBYHB4jwcDQXB4Hx8HA39/Pz8fB39//Pj4ePj4+PDwcPDw8fDwcPDw4+HgYGBwx8NBYGBwjwcDQWBwHx8Hf39/Pz8ff39///j4ePj4//DwcPDw//DwcPDw/+HgYGBg/8NBYGBg/wcDQUBg/w8HA39//x8PBwN////4ePj4///wcPDw///wcPDw///gYODg///hQODg//9DAUBAAAAAAAAAAAAAAAAA////ePj4////cPDw////cPDw////YODg////YMDg////QQBAAAAAAAAAAAAAAAAA////f/j4////f/Dw////f/Dw////f+Dg////f+DA////f8CAAAAAAAAAAAAAAAAA////f//+////f//9////f//7////f//3////f//v////f//f////f/+/////f/9/////f///////f///////f///////f///////f///////f///////f///////f////Pjw4P7++PDgwP7+8eDAgA4e48GAAg4ex4MDBg4ejwcHDw4eHw8PDw4fPx8fHx4f/Pjw4MD++PDgwID+8eDAgAIO48GAAgYOx4MDBgYOjwcHDw4OHw8PDw4PPx8fHx4f//jw4P7+//DgwP7+/+DAgAIG/8GAAgYG/4MDBgYG/wcHDw4O/w8PDw4P/x8fHx4f///w4MDA///gwID+///AgAIC//+CAgYG//8HBgYG//8PDw4O//8PDw4P//8fHx4fAAAAAAAAAAAAAAAA////ggAC////BwIH////BwYH////Dw4P////Dw4P////Hx4fAAAAAAAAAAAAAAAA/////wIA/////wYD/////wYH/////w4P/////w4P/////x4fAAAAAAAAAAAAAAAA//////77//////73//////7v//////7f//////6///////5///////7///////7///////7///////7///////7///////7///////7///////7//Pjw+Pz++PDgwPz+8eDAgHx+48GAAhw+x4MDBhw+jwcHDxw+Hw8PHx0/Px8fHx0//Pjw+Pz++PDgwID+8eDAgAB+48GAAgQex4MDBgwejwcHDwweHw8PHx0fPx8fHx0f//jw+Pz+//DgwPz+/+DAgHx+/8GAAgQO/4MDBgwO/wcHDwwO/w8PHx0f/x8fHx0f///0+Pz+///gwICA///AgAB+//+CAgQG//8HBgwO//8PDwwO//8fHx0f//8fHx0fAAAAAAAAAAAAAAAAAAAAAAAA////BwEH////DwUP////Dw0P////Hx0f////Hx0fAAAAAAAAAAAAAAAAAAAAAAAA/////wUD/////w0H/////w0P/////x0f/////x0fAAAAAAAAAAAAAAAAAAAAAAAA//////33//////3v//////3f//////2///////1///////3///////3///////3///////3///////3///////3///////3///////3//Pj4/Pr++PDg8Pr+8eDAgHp+48GAAHp+x4MDBjp+jwcHDzp+Hw8PHzt/Px8fPzt//Pj4/Pr++PDg8Pj+8eDAgAB+48GAAAJ+x4MDBgo+jwcHDxo+Hw8PHxs/Px8fPzs///j4/Pr+//Dg8Pr+/+DAgHp+/8GAAHp+/4MDBgoe/wcHDxoe/w8PHxsf/x8fPzs////8/Pr+///o8Pj+///AgAAA//+CAAJ+//8HBgoO//8PDxoe//8fHxsf//8/Pzs//////vj+AAAAAAAAAAAAAAAAAAAAAAAA////DwMP////Hwsf////Hxsf////Pzs///////r8AAAAAAAAAAAAAAAAAAAAAAAA/////wsH/////xsP/////xsf/////zs///////v+AAAAAAAAAAAAAAAAAAAAAAAA//////vv//////vf//////u///////t///////v///////v///////v///////v///////v///////v///////v///////v//Pj4/Pb++PDw+Pb+8eDA4HZ+48GAAHZ+x4MBAnZ+jwcHD3Z+Hw8PH3d/Px8fP3d//Pj4/Pb++PDw+PT+8eDA4HB+48GAAAB+x4MBAgZ+jwcHDxZ+Hw8PHzd/Px8fPzd///j4/Pb+//Dw+PT+/+DA4HZ+/8GAAHZ+/4MBAnZ+/wcHDxY+/w8PHzc//x8fPzc////8/Pb+///4+PT8///Q4HB+//+AAAAA//8FAgZ+//8PDxYe//8fHzc///8/Pzc//////vT+/////PD8AAAAAAAAAAAAAAAAAAAAAAAA////Hwcf////Pxc/////Pzc///////b8//////T4AAAAAAAAAAAAAAAAAAAAAAAA/////xcP/////zcf/////zc///////f+//////f9AAAAAAAAAAAAAAAAAAAAAAAA//////ff//////e///////d///////f///////f///////f///////f///////f///////f///////f///////f//Pj4/O7++PDw+O7+8eDg8G5+48GAQG5+x4MBAG5+jwcDB25+Hw8PH29/Px8fP29//Pj4/Oz++PDw+Oz+8eDg8Gh+48GAQGB+x4MBAAB+jwcDBw5+Hw8PHy9/Px8fP29///j4/Oz8//Dw+Oz8/+Dg8Gh8/8GAQG5+/4MBAG5+/wcDB25+/w8PHy9//x8fP29////8/Oz8///4+Oz8///w8Gh4//+gQGB+//8BAAAA//8LBw5+//8fHy8///8/P29//////Oz8/////Oj8////+OD4AAAAAAAAAAAAAAAAAAAAAAAA////Pw8/////fy9//////+z8/////+z4/////+jwAAAAAAAAAAAAAAAAAAAAAAAA/////y8f/////28//////+/+/////+/9/////+/7AAAAAAAAAAAAAAAAAAAAAAAA/////++//////+9//////+///////+///////+///////+///////+///////+///////+///////+///Pj4/Nz++PDw+Nz+8eDg8Fx+48HAYFx+x4MBAF5+jwcDAV5+Hw8HD19/Px8fP19//Pj4/Nz8+PDw+Nj88eDg8Fh848HAYFB8x4MBAEB+jwcDAQB+Hw8HDx9/Px8fP19///j4/Nz8//Dw+Nj4/+Dg8Fh4/8HAYFB4/4MBAF5+/wcDAV5+/w8HD19//x8fP19////8/Nz8///4+Nj4///w8Fh4///gYFBw//9BAEB+//8DAQAA//8XDx9///8/P19//////Nz8////+Nj4////+ND4////8MDwAAAAAAAAAAAAAAAAAAAAAAAA////fx9//////9z8/////9j4/////9jw/////9DgAAAAAAAAAAAAAAAAAAAAAAAA/////18//////9/+/////9/9/////9/7/////9/3AAAAAAAAAAAAAAAAAAAAAAAA/////99//////9///////9///////9///////9///////9///////9///////9///////9///Pj4+Lj8+PDw+Lj88eDg8Dh848HAYDh8x4MBQDh8jwcDAT5+Hw8HAz9/Px8PHz9//Pj4+Lj4+PDw+Lj48eDg8DB448HAYDB4x4MBQCB4jwcDAQB+Hw8HAwF/Px8PHz9///j4+Lj4//Dw+Lj4/+Dg8DBw/8HAYDBw/4MBQCBw/wcDAT5+/w8HAz9//x8PHz9////4+Lj4///4+Lj4///w8DBw///gYDBw//9BQCBg//8DAQB+//8HAwEB//8vHz9/////+Lj4////+Lj4////8LDw////8KDw////4IDgAAAAAAAAAAAAAAAAAAAAAAAA/////7j4/////7j4/////7Dw/////7Dg/////6DAAAAAAAAAAAAAAAAAAAAAAAAA/////7/+/////7/9/////7/7/////7/3/////7/vAAAAAAAAAAAAAAAAAAAAAAAA/////7///////7///////7///////7///////7///////7///////7///////7///Pj4+Hj4+PDw8HD48eDg8HB448HAYHB4x4MBQHB4jwcDAXB4Hw8HA39/Px8PB39//Pj4+Hj4+PDw8HDw8eDg8HBw48HAYGBwx4MBQGBwjwcDAUBwHw8HAwF/Px8PBwN///j4+Hj4//Dw8HDw/+Dg8HBw/8HAYGBg/4MBQGBg/wcDAUBg/w8HA39//x8PB39////4+Hj4///w8HDw///w8HBw///gYGBg//9BQGBg//8DAUBA//8HAwF///8PBwMD////+Hj4////8HDw////8HDw////4GDg////4EDg////QQBAAAAAAAAAAAAAAAAA/////3j4/////3Dw/////3Dw/////2Dg/////2DA/////0AAAAAAAAAAAAAAAAAA/////3/+/////3/9/////3/7/////3/3/////3/v/////3/fAAAAAAAAAAAAAAAA/////3///////3///////3///////3///////3///////3///////3///////3///Pjw4MD++PDgwID+8eDAgAAe48GAAAIex4MBAgYejwcDBw4eHw8HDw8ePx8PHx8e/Pjw4MD++PDgwID+8eDAgAAO48GAAAIOx4MBAgYOjwcDBw4OHw8HDw8OPx8PHx8e//jw4MDA//DgwICA/+DAgAAC/8GAAAIG/4MBAgYG/wcDBw4O/w8HDw8O/x8PHx8e///w4MD+///gwID+///AgAAC//+AAAIG//8BAgYG//8DBw4O//8HDw8O//8PHx8e////4MDA////wICA////gAAC////AgIG////BgYG////Dw4O////Dw8O////Hx8eAAAAAAAAAAAAAAAA/////wIA/////wcC/////wcG/////w8O/////w8O/////x8eAAAAAAAAAAAAAAAA///////6///////2///////u///////e//////++//////9+AAAAAAAAAAAAAAAA///////+///////+///////+///////+///////+///////+/Pjw8Pj8+PDgwID88eDAgAB848GAAAI8x4MBAgY8jwcDBw48Hw8HDx89Px8PHx89/Pjw8Pj8+PDgwID88eDAgAB848GAAAIcx4MBAgYcjwcDBw4cHw8HDx8dPx8PHx8d//jw8Pj8//DgwICA/+DAgAAA/8GAAAIE/4MBAgYM/wcDBw4M/w8HDx8d/x8PHx8d///w8Pj8///gwID8///AgAB8//+AAAIE//8BAgYM//8DBw4M//8HDx8d//8PHx8d////9Pj8////wICA////gAAA////AgIE////BgYM////Dw4M////Hx8d////Hx8dAAAAAAAAAAAAAAAAAAAAAAAA/////wcB/////w8F/////w8N/////x8d/////x8dAAAAAAAAAAAAAAAAAAAAAAAA///////1///////t///////d//////+9//////99AAAAAAAAAAAAAAAAAAAAAAAA///////9///////9///////9///////9///////9/Pjw+Pz6+PDg4PD68eDAgAB648GAAAB6x4MBAgZ6jwcDBw56Hw8HDx97Px8PHz97/Pjw+Pz6+PDg4PD68eDAgAB648GAAAB6x4MBAgY6jwcDBw46Hw8HDx87Px8PHz87//jw+Pz6//Dg4PD4/+DAgAAA/8GAAAAC/4MBAgYK/wcDBw4a/w8HDx8b/x8PHz87///w+Pz6///g4PD6///AgAB6//+AAAB6//8BAgYK//8DBw4a//8HDx8b//8PHz87/////Pz6////6PD4////gAAA////AgAC////BgYK////Dw4a////Hx8b////Pz87//////74AAAAAAAAAAAAAAAAAAAAAAAA/////w8D/////x8L/////x8b/////z87///////6AAAAAAAAAAAAAAAAAAAAAAAA///////r///////b//////+7//////97///////7AAAAAAAAAAAAAAAAAAAAAAAA///////7///////7///////7///////7/Pjw+Pz2+PDg8Pj28eDAwGB248GAAAB2x4MBAAJ2jwcDBw52Hw8HDx93Px8PHz93/Pjw+Pz2+PDg8Pj28eDAwGB248GAAAB2x4MBAAJ2jwcDBw52Hw8HDx93Px8PHz93//jw+Pz2//Dg8Pj0/+DAwGBw/8GAAAAA/4MBAAIG/wcDBw4W/w8HDx83/x8PHz83///w+Pz2///g8Pj0///AwGB2//+AAAB2//8BAAJ2//8DBw4W//8HDx83//8PHz83/////Pz2////+Pj0////0GBw////AAAA////BAIG////Dw4W////Hx83////Pz83//////70//////zwAAAAAAAAAAAAAAAAAAAAAAAA/////x8H/////z8X/////z83///////2///////1AAAAAAAAAAAAAAAAAAAAAAAA///////X//////+3//////93///////3///////3AAAAAAAAAAAAAAAAAAAAAAAA///////3///////3///////3/Pjw+Pzu+PDg8Pju8eDA4HBu48GAAEBux4MBAABujwcDAwZuHw8HDx9vPx8PHz9v/Pjw+Pzu+PDg8Pju8eDA4HBu48GAAEBux4MBAABujwcDAwZuHw8HDx9vPx8PHz9v//jw+Pzs//Dg8Pjs/+DA4HBo/8GAAEBg/4MBAAAA/wcDAwYO/w8HDx8v/x8PHz9v///w+Pzs///g8Pjs///A4HBo//+AAEBu//8BAABu//8DAwZu//8HDx8v//8PHz9v/////Pzs////+Pjs////8HBo////IEBg////AAAA////CwYO////Hx8v////Pz9v//////zs//////zo//////jgAAAAAAAAAAAAAAAAAAAAAAAA/////z8P/////38v///////u///////t///////rAAAAAAAAAAAAAAAAAAAAAAAA//////+v//////9v///////v///////v///////vAAAAAAAAAAAAAAAAAAAAAAAA///////v///////v/Pjw+Pze+PDg8Pje8eDA4HBe48GAQGBex4MBAABejwcDAQBeHw8HBw9fPx8PHz9f/Pjw+Pzc+PDg8Pjc8eDA4HBc48GAQGBcx4MBAABejwcDAQBeHw8HBw9fPx8PHz9f//jw+Pzc//Dg8PjY/+DA4HBY/8GAQGBQ/4MBAABA/wcDAQAA/w8HBw8f/x8PHz9f///w+Pzc///g8PjY///A4HBY//+AQGBQ//8BAABe//8DAQBe//8HBw9f//8PHz9f/////Pzc////+PjY////8HBY////YGBQ////QABA////AQAA////Fw8f////Pz9f//////zc//////jY//////jQ//////DAAAAAAAAAAAAAAAAAAAAAAAAA/////38f///////e///////d///////b///////XAAAAAAAAAAAAAAAAAAAAAAAA//////9f///////f///////f///////f///////fAAAAAAAAAAAAAAAAAAAAAAAA///////f/Pjw+Pi8+PDg8Pi88eDA4HA848GAQGA8x4MBAEA8jwcDAQA+Hw8HAwE/Px8PDx8//Pjw+Pi4+PDg8Pi48eDA4HA448GAQGA4x4MBAEA4jwcDAQA+Hw8HAwE/Px8PDx8///jw+Pi4//Dg8Pi4/+DA4HAw/8GAQGAw/4MBAEAg/wcDAQAA/w8HAwEB/x8PDx8////w+Pi4///g8Pi4///A4HAw//+AQGAw//8BAEAg//8DAQA+//8HAwE///8PDx8/////+Pi4////+Pi4////8HAw////YGAw////QEAg////AQAA////AwEB////Lx8///////i4//////i4//////Cw//////Cg/////+CAAAAAAAAAAAAAAAAAAAAAAAAA//////++//////+9//////+7//////+3//////+vAAAAAAAAAAAAAAAAAAAAAAAA//////+///////+///////+///////+///////+/AAAAAAAAAAAAAAAAAAAAAAAA/Pjw+Ph4+PDg8PB48eDA4HB448GAQGB4x4MBAEB4jwcDAQB4Hw8HAwF/Px8PBwN//Pjw+Ph4+PDg8PBw8eDA4HBw48GAQGBwx4MBAEBwjwcDAQBwHw8HAwF/Px8PBwN///jw+Ph4//Dg8PBw/+DA4HBw/8GAQGBg/4MBAEBg/wcDAQBA/w8HAwEB/x8PBwMD///w+Ph4///g8PBw///A4HBw//+AQGBg//8BAEBg//8DAQBA//8HAwF///8PBwN/////+Ph4////8PBw////8HBw////YGBg////QEBg////AQBA////AwEB////BwMD//////h4//////Bw//////Bw/////+Bg/////+BA/////0AAAAAAAAAAAAAAAAAA//////9+//////99//////97//////93//////9v//////9fAAAAAAAAAAAAAAAA//////9///////9///////9///////9///////9///////9/AAAAAAAAAAAAAAAA/Pjw4MD++PDgwID+8eDAgAAe48GAAAAex4MBAAIejwcDAwYeHw8HBw8fPx8PDx8f/Pjw4MDA+PDgwICA8eDAgAAA48GAAAACx4MBAAIGjwcDAwYOHw8HBw8PPx8PDx8f//jw4MDA//DgwICA/+DAgAAA/8GAAAAC/4MBAAIG/wcDAwYO/w8HBw8P/x8PDx8f///w4MDA///gwICA///AgAAA//+AAAAC//8BAAIG//8DAwYO//8HBw8P//8PDx8f////4MDA////wICA////gAAA////AAAC////AAIG////AwYO////Bw8P////Dx8f/////8DA/////4CA/////wAA/////wIC/////wYG/////w4O/////w8P/////x8fAAAAAAAAAAAAAAAA///////7///////3///////v///////f//////+///////9/AAAAAAAAAAAAAAAA/////////////////////////////////////////////////Pjw4PD++PDgwID+8eDAgAB+48GAAAA+x4MBAAI+jwcDAwY+Hw8HBw8/Px8PDx8//Pjw4PD4+PDgwICA8eDAgAAA48GAAAACx4MBAAIGjwcDAwYOHw8HBw8fPx8PDx8f//jw4PD4//DgwICA/+DAgAAA/8GAAAAC/4MBAAIG/wcDAwYO/w8HBw8f/x8PDx8f///w4PD4///gwICA///AgAAA//+AAAAC//8BAAIG//8DAwYO//8HBw8f//8PDx8f////4PD4////wICA////gAAA////AAAC////AAIG////AwYO////Bw8f////Dx8f//////T4/////4CA/////wAA/////wIC/////wYG/////w4O/////x8f/////x8fAAAAAAAAAAAAAAAAAAAAAAAA///////3///////v///////f//////+///////9/AAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////////////Pjw8Pj++PDgwOD+8eDAgAB+48GAAAB+x4MBAAJ+jwcDAwZ+Hw8HBw9/Px8PDx9//Pjw8Pj8+PDgwODw8eDAgAAA48GAAAAAx4MBAAIGjwcDAwYOHw8HBw8fPx8PDx8///jw8Pj8//DgwODw/+DAgAAA/8GAAAAA/4MBAAIG/wcDAwYO/w8HBw8f/x8PDx8////w8Pj8///gwODw///AgAAA//+AAAAA//8BAAIG//8DAwYO//8HBw8f//8PDx8/////8Pj8////wODw////gAAA////AAAA////AAIG////AwYO////Bw8f////Dx8///////z8/////+jw/////wAA/////wIA/////wYG/////w4O/////x8f/////z8////////+AAAAAAAAAAAAAAAAAAAAAAAA///////v///////f//////+///////9/////////AAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////////////Pjw8Pj++PDg4PD+8eDAgEB+48GAAAB+x4MBAAB+jwcDAwZ+Hw8HBw9/Px8PDx9//Pjw8Pj8+PDg4PD48eDAgEBg48GAAAAAx4MBAAACjwcDAwYOHw8HBw8fPx8PDx8///jw8Pj8//Dg4PD4/+DAgEBg/8GAAAAA/4MBAAAC/wcDAwYO/w8HBw8f/x8PDx8////w8Pj8///g4PD4///AgEBg//+AAAAA//8BAAAC//8DAwYO//8HBw8f//8PDx8/////8Pj8////4PD4////gEBg////AAAA////AAAC////AwYO////Bw8f////Dx8///////z8//////j4/////1Bg/////wAA/////wQC/////w4O/////x8f/////z8////////+///////9AAAAAAAAAAAAAAAAAAAAAAAA///////f//////+///////9/////////////////AAAAAAAAAAAAAAAAAAAAAAAA/////////////////////////Pjw8Pj++PDg4PD+8eDAwGB+48GAAAB+x4MBAAB+jwcDAQJ+Hw8HBw9/Px8PDx9//Pjw8Pj8+PDg4PD48eDAwGBw48GAAABAx4MBAAAAjwcDAQIGHw8HBw8fPx8PDx8///jw8Pj8//Dg4PD4/+DAwGBw/8GAAABA/4MBAAAA/wcDAQIG/w8HBw8f/x8PDx8////w8Pj8///g4PD4///AwGBw//+AAABA//8BAAAA//8DAQIG//8HBw8f//8PDx8/////8Pj8////4PD4////wGBw////AABA////AAAA////AQIG////Bw8f////Dx8///////z8//////j4/////3Bw/////yBA/////wAA/////woG/////x8f/////z8////////+///////9///////7AAAAAAAAAAAAAAAAAAAAAAAA//////+///////9/////////////////////////AAAAAAAAAAAAAAAAAAAAAAAA/////////////////Pjw8Pj++PDg4PD+8eDAwGB+48GAAEB+x4MBAAB+jwcDAQB+Hw8HAwd/Px8PDx9//Pjw8Pj8+PDg4PD48eDAwGBw48GAAEBgx4MBAAAAjwcDAQAAHw8HAwcPPx8PDx8///jw8Pj8//Dg4PD4/+DAwGBw/8GAAEBg/4MBAAAA/wcDAQAA/w8HAwcP/x8PDx8////w8Pj8///g4PD4///AwGBw//+AAEBg//8BAAAA//8DAQAA//8HAwcP//8PDx8/////8Pj8////4PD4////wGBw////AEBg////AAAA////AQAA////AwcP////Dx8///////z8//////j4/////3Bw/////2Bg/////0AA/////wAA/////xcP/////z8////////+///////9///////7///////3AAAAAAAAAAAAAAAAAAAAAAAA//////9/////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAA/////////Pjw8Pj8+PDg4PD88eDAwGB848GAAEB8x4MBAAB8jwcDAQB+Hw8HAwF/Px8PBw9//Pjw8Pj4+PDg4PD48eDAwGBw48GAAEBgx4MBAABAjwcDAQAAHw8HAwEBPx8PBw8f//jw8Pj4//Dg4PD4/+DAwGBw/8GAAEBg/4MBAABA/wcDAQAA/w8HAwEB/x8PBw8f///w8Pj4///g4PD4///AwGBw//+AAEBg//8BAABA//8DAQAA//8HAwEB//8PBw8f////8Pj4////4PD4////wGBw////AEBg////AABA////AQAA////AwEB////Bw8f//////j4//////j4/////3Bw/////2Bg/////0BA/////wAA/////wEB/////y8f///////+///////9///////7///////3///////vAAAAAAAAAAAAAAAAAAAAAAAA////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAA/Pjw8Pj4+PDg4PD48eDAwGB448GAAEB4x4MBAAB4jwcDAQB4Hw8HAwF/Px8PBwN//Pjw8Pj4+PDg4PDw8eDAwGBw48GAAEBgx4MBAABAjwcDAQAAHw8HAwEBPx8PBwMD//jw8Pj4//Dg4PDw/+DAwGBw/8GAAEBg/4MBAABA/wcDAQAA/w8HAwEB/x8PBwMD///w8Pj4///g4PDw///AwGBw//+AAEBg//8BAABA//8DAQAA//8HAwEB//8PBwMD////8Pj4////4PDw////wGBw////AEBg////AABA////AQAA////AwEB////BwMD//////j4//////Dw/////3Bw/////2Bg/////0BA/////wAA/////wEB/////wMD///////+///////9///////7///////3///////v///////fAAAAAAAAAAAAAAAA////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA4sKCAgICwoICAgIChwcHBwcHBwcHBwcHDw8PDw8PHw8PDw8PAAAAAAAAAAAAAAAA4sCAAAAAwoICAAAAhwcHAwAABwcHBwMBDw8PDwcDHw8PDw8H//DgwICA8uDAgAAA4sCAAAAAwoIAAAAAhwcDAQAABwcHAwEBDw8PBwMDHw8PDwcH//DgwICA/+DAgAAA/8CAAAAA/4MAAAAA/wcDAQAA/wcHAwEB/w8PBwMD/w8PDwcH///gwICA///AgAAA//+AAAAA//8BAAAA//8DAQAA//8HAwEB//8PBwMD//8PDwcH////wICA////gAAA////AAAA////AAAA////AQAA////AwEB////BwMD////DwcH/////4CA/////wAA/////wAA/////wAA/////wAA/////wEB/////wMD/////wcH///////8///////4///////x///////j///////H//////+P//////8f//////8/AAAAAAAAAAAAAAAAAAAAAAAAx4cHBwcHhwcHBwcHDw8PDw8PDw8PDw8PHx8fHx8fAAAAAAAAAAAAAAAAAAAAAAAAx4MDAAAAhwcHAwAADw8PBwMBDw8PDwcDHx8fHw8H//zgwICA/+DAgAAA58GAAAAAx4MBAAAAhwcDAQAADw8HAwEBDw8PBwMDHx8fDwcH//zgwICA/+DAgAAA/8GAAAAA/4MBAAAA/wcDAQAA/w8HAwEB/w8PBwMD/x8fDwcH///4wICA///AgAAA//+AAAAA//8BAAAA//8DAQAA//8HAwEB//8PBwMD//8fDwcH////wICA////gAAA////AAAA////AAAA////AQAA////AwEB////BwMD////DwcH/////4CA/////wAA/////wAA/////wAA/////wAA/////wEB/////wMD/////wcH///////8///////4///////x///////j///////H//////+P//////8f//////8//vz+/v7+AAAAAAAAAAAAAAAAAAAAAAAAjw8PDw8PDw8PDw8PHx8fHx8fHx8fHx8f/vz8+PDgAAAAAAAAAAAAAAAAAAAAAAAAjwcHAwAADw8PBwMBHx8fDwcDHx8fHw8H/vz48ODg/vjAgAAA/8CAAAAAz4MAAAAAjwcDAQAADw8HAwEBHx8PBwMDHx8fDwcH//z48ODg//jAgAAA/8CAAAAA/4MAAAAA/wcDAQAA/w8HAwEB/x8PBwMD/x8fDwcH///48ODg///wgAAA//+AAAAA//8BAAAA//8DAQAA//8HAwEB//8PBwMD//8fDwcH////8ODg////gAAA////AAAA////AAAA////AQAA////AwEB////BwMD////DwcH/////+Dg/////wAA/////wAA/////wAA/////wAA/////wEB/////wMD/////wcH///////8///////4///////x///////j///////H//////+P//////8f//////8//Pz8/Pz8/Pz8/Pz8AAAAAAAAAAAAAAAAAAAAAAAAHx8fHx8fHx8fHx8fPz8/Pz8//Pz8+PDg/Pj48ODAAAAAAAAAAAAAAAAAAAAAAAAAHw8PBwMBHx8fDwcDPz8/Hw8H/Pz48ODg/Pjw4MDA/PCAAAAA/4AAAAAAnwcAAAAAHw8HAwEBHx8PBwMDPz8fDwcH//z48ODg//jw4MDA//CAAAAA/4AAAAAA/wcAAAAA/w8HAwEB/x8PBwMD/z8fDwcH///48ODg///w4MDA///gAAAA//8AAAAA//8DAAAA//8HAwEB//8PBwMD//8fDwcH////8ODg////4MDA////AAAA////AAAA////AAAA////AwEB////BwMD////DwcH/////+Dg/////8DA/////wAA/////wAA/////wAA/////wEB/////wMD/////wcH///////8///////4///////x///////j///////H//////+P//////8f//////8//Pz8/Pz8+Pj4+Pj4+Pj4+Pj4AAAAAAAAAAAAAAAAAAAAAAAAPz8/Pz8/Pz8/Pz8//Pz8+PDg+Pj48ODA+PDw4MCAAAAAAAAAAAAAAAAAAAAAAAAAPx8fDwcDPz8/Hw8H/Pz48ODg+Pjw4MDA+PDgwICA+eAAAAAA/wEAAAAAPw8BAAAAPx8PBwMDPz8fDwcH//z48ODg//jw4MDA//DgwICA/+AAAAAA/wEAAAAA/w8BAAAA/x8PBwMD/z8fDwcH///48ODg///w4MDA///gwICA///AAAAA//8AAAAA//8HAAAA//8PBwMD//8fDwcH////8ODg////4MDA////wICA////AAAA////AAAA////AAAA////BwMD////DwcH/////+Dg/////8DA/////4CA/////wAA/////wAA/////wAA/////wMD/////wcH///////8///////4///////x///////j///////H//////+P//////8f//////8/+Pj4+Pj4+Pj4+Pj48PDw8PDw8fDw8PDwAAAAAAAAAAAAAAAAAAAAAAAAfz9/f39/+Pj4+PDg+Pj48ODA8PDw4MCA8eDgwAAAAAAAAAAAAAAAAAAAAAAAAAAAfz8/Hw8H+Pj48ODg+Pjw4MDA8PDgwICA8eDAgAAA88EAAAAA/wMBAAAAfx8DAQAAfz8fDwcH//j48ODg//jw4MDA//DgwICA/+DAgAAA/8EAAAAA/wMBAAAA/x8DAQAA/z8fDwcH///48ODg///w4MDA///gwICA///AgAAA//+AAAAA//8BAAAA//8PAQAA//8fDwcH////8ODg////4MDA////wICA////gAAA////AAAA////AAAA////AQAA////DwcH/////+Dg/////8DA/////4CA/////wAA/////wAA/////wAA/////wAA/////wcH///////8///////4///////x///////j///////H//////+P//////8f//////8/+Pj4+Pj48PDw8PDw8PDw8PDw4eDg4ODg4+Hg4ODgAAAAAAAAAAAAAAAAAAAAAAAA+Pj4+PDg8PDw8ODA8PDw4MCA4eDgwAAA48HAAAAAAAAAAAAAAAAAAAAAAAAAAAAA+Pj48ODg8PDw4MDA8PDgwICA4eDAgAAA48GAAAAA54MBAAAA/wcDAQAA/z8HAwEB//j48ODg//Dw4MDA//DgwICA/+DAgAAA/8GAAAAA/4MBAAAA/wcDAQAA/z8HAwEB///48ODg///w4MDA///gwICA///AgAAA//+AAAAA//8BAAAA//8DAQAA//8fAwEB////8ODg////4MDA////wICA////gAAA////AAAA////AAAA////AQAA////AwEB/////+Dg/////8DA/////4CA/////wAA/////wAA/////wAA/////wAA/////wEB///////8///////4///////x///////j///////H//////+P//////8f//////8/+PDw8PDw8PDw8PDw4ODg4ODg4eDg4ODgQ0FAQEBAR0NBQEBAAAAAAAAAAAAAAAAA+PDw8PDg8PDw8ODA4ODg4MCA4eDgwAAAQ0FAAAAARwMBAAAAAAAAAAAAAAAAAAAA+PDw8ODg8PDw4MDA4ODgwICA4eDAgAAAQ0EAAAAARwMBAAAATwcDAQAA/w8HAwEB//Dw8ODg//Dw4MDA/+DgwICA/+DAgAAA/8EAAAAA/wMBAAAA/wcDAQAA/w8HAwEB///w8ODg///w4MDA///gwICA///AgAAA//+AAAAA//8BAAAA//8DAQAA//8HAwEB////8ODg////4MDA////wICA////gAAA////AAAA////AAAA////AQAA////AwEB/////+Dg/////8DA/////4CA/////wAA/////wAA/////wAA/////wAA/////wEB///////8///////4///////x///////j///////H//////+P//////8f//////8/AAAAAAAAAAAAAAAA4sKCAgICwoICAgIChgcHBwcHBgcHBwcHDg8PDw8PHg8PDw8PAAAAAAAAAAAAAAAA4sKCAgICwoICAgIChgcHBwcHBgcHBwcHDg8PDw8PHg8PDw8PAAAAAAAAAAAAAAAA4sKAAAAAwoICAgAAhgcHBwMBBgcHBwcDDg8PDw8HHg8PDw8P/v/gwICA/uPAgAAA/sOAAAAA/oMCAAAA/gcHAwEB/gcHBwMD/g8PDwcH/g8PDw8P/v/gwICA/v/AgAAA/v+BAAAA/v8DAAAA/v8HAwEB/v8HBwMD/v8PDwcH/v8PDw8P/v//wICA/v//gAAA/v//AAAA/v//AQAA/v//AwEB/v//BwMD/v//DwcH/v//Dw8P/v///4CA/v///wAA/v///wAA/v///wAA/v///wEB/v///wMD/v///wcH/v///w8P/v/////8/v/////4/v/////x/v/////j/v/////H/v////+P/v////8f/v////8/AAAAAAAAAAAAAAAAAAAAAAAAxYcHBwcHhQcHBwcHDQ8PDw8PDQ8PDw8PHR8fHx8fAAAAAAAAAAAAAAAAAAAAAAAAxYcHBwcHhQcHBwcHDQ8PDw8PDQ8PDw8PHR8fHx8fAAAAAAAAAAAAAAAAAAAAAAAAxYcDAwAAhQcHBwMBDQ8PDwcDDQ8PDw8HHR8fHx8P/f/8wICA/f/AgAAA/ceBAAAA/YcDAQAA/QcHAwEB/Q8PBwMD/Q8PDwcH/R8fHw8P/f/8wICA/f/AgAAA/f+BAAAA/f8DAQAA/f8HAwEB/f8PBwMD/f8PDwcH/f8fHw8P/f//+ICA/f//gAAA/f//AAAA/f//AQAA/f//AwEB/f//BwMD/f//DwcH/f//Hw8P/f///4CA/f///wAA/f///wAA/f///wAA/f///wEB/f///wMD/f///wcH/f///w8P/f/////8/f/////4/f/////x/f/////j/f/////H/f////+P/f////8f/f////8/+vz+/v7+AAAAAAAAAAAAAAAAAAAAAAAAiw8PDw8PCw8PDw8PGx8fHx8fGx8fHx8f+v7+/v7+AAAAAAAAAAAAAAAAAAAAAAAAiw8PDw8PCw8PDw8PGx8fHx8fGx8fHx8f+v78/PjwAAAAAAAAAAAAAAAAAAAAAAAAiw8HBwMBCw8PDwcDGx8fHw8HGx8fHx8P+/78+PDw+/74gAAA+/+AAAAA+48DAAAA+w8HAwEB+w8PBwMD+x8fDwcH+x8fHw8P+//8+PDw+//4gAAA+/+AAAAA+/8DAAAA+/8HAwEB+/8PBwMD+/8fDwcH+/8fHw8P+///+PDw+///8AAA+///AAAA+///AQAA+///AwEB+///BwMD+///DwcH+///Hw8P+/////Dw+////wAA+////wAA+////wAA+////wEB+////wMD+////wcH+////w8P+//////8+//////4+//////x+//////j+//////H+/////+P+/////8f+/////8/9Pz8/Pz89Pz8/Pz8AAAAAAAAAAAAAAAAAAAAAAAAFx8fHx8fFx8fHx8fNz8/Pz8/9Pz8/Pz89Pz8/Pz8AAAAAAAAAAAAAAAAAAAAAAAAFx8fHx8fFx8fHx8fNz8/Pz8/9Pz8/Pjw9Pz4+PDgAAAAAAAAAAAAAAAAAAAAAAAAFx8PDwcDFx8fHw8HNz8/Px8P9/z8+PDw9/z48ODg9/zwAAAA9/8AAAAA9x8HAAAA9x8PBwMD9x8fDwcH9z8/Hw8P9//8+PDw9//48ODg9//wAAAA9/8AAAAA9/8HAAAA9/8PBwMD9/8fDwcH9/8/Hw8P9///+PDw9///8ODg9///4AAA9///AAAA9///AwAA9///BwMD9///DwcH9///Hw8P9/////Dw9////+Dg9////wAA9////wAA9////wAA9////wMD9////wcH9////w8P9//////89//////49//////x9//////j9//////H9/////+P9/////8f9/////8/7Pz8/Pz86Pj4+Pj46Pj4+Pj4AAAAAAAAAAAAAAAAAAAAAAAALz8/Pz8/Lz8/Pz8/7Pz8/Pz86Pj4+Pj46Pj4+Pj4AAAAAAAAAAAAAAAAAAAAAAAALz8/Pz8/Lz8/Pz8/7Pz8/Pjw6Pj4+PDg6Pjw8ODAAAAAAAAAAAAAAAAAAAAAAAAALz8fHw8HLz8/Px8P7/z8+PDw7/j48ODg7/jw4MDA7/jgAAAA7/8AAAAA7z8PAAAA7z8fDwcH7z8/Hw8P7//8+PDw7//48ODg7//w4MDA7//gAAAA7/8AAAAA7/8PAAAA7/8fDwcH7/8/Hw8P7///+PDw7///8ODg7///4MDA7///wAAA7///AAAA7///BwAA7///DwcH7///Hw8P7/////Dw7////+Dg7////8DA7////wAA7////wAA7////wAA7////wcH7////w8P7//////87//////47//////x7//////j7//////H7/////+P7/////8f7/////8/2Pj4+Pj42Pj4+Pj40PDw8PDw0fDw8PDwAAAAAAAAAAAAAAAAAAAAAAAAXz9/f39/2Pj4+Pj42Pj4+Pj40PDw8PDw0fDw8PDwAAAAAAAAAAAAAAAAAAAAAAAAX39/f39/2Pj4+Pjw2Pj4+PDg0PDw8ODA0fDg4MCAAAAAAAAAAAAAAAAAAAAAAAAAX38/Px8P3/j4+PDw3/j48ODg3/Dw4MDA3/DgwICA3/HAAAAA3/8BAAAA338fAQAA338/Hw8P3//4+PDw3//48ODg3//w4MDA3//gwICA3//AAAAA3/8BAAAA3/8fAQAA3/8/Hw8P3///+PDw3///8ODg3///4MDA3///wICA3///gAAA3///AAAA3///DwAA3///Hw8P3/////Dw3////+Dg3////8DA3////4CA3////wAA3////wAA3////wAA3////w8P3//////83//////43//////x3//////j3//////H3/////+P3/////8f3/////8/uPj4+Pj4sPDw8PDwsPDw8PDwoeDg4ODgo+Hg4ODgAAAAAAAAAAAAAAAAAAAAAAAAuPj4+Pj4sPDw8PDwsPDw8PDwoeDg4ODgo+Hg4ODgAAAAAAAAAAAAAAAAAAAAAAAAuPj4+PjwsPDw8PDgsPDw8ODAoeDg4MCAo+HAwAAAAAAAAAAAAAAAAAAAAAAAAAAAv/j4+PDwv/Dw8ODgv/Dw4MDAv+DgwICAv+HAgAAAv+OBAAAAv/8DAQAAv/8/AwEBv//4+PDwv//w8ODgv//w4MDAv//gwICAv//AgAAAv/+BAAAAv/8DAQAAv/8/AwEBv///+PDwv///8ODgv///4MDAv///wICAv///gAAAv///AAAAv///AQAAv///HwEBv/////Dwv////+Dgv////8DAv////4CAv////wAAv////wAAv////wAAv////wEBv//////8v//////4v//////xv//////jv//////Hv/////+Pv/////8fv/////8/ePDw8PDwcPDw8PDwYODg4ODgYeDg4ODgQ0FAQEBAR0NBQEBAAAAAAAAAAAAAAAAAePDw8PDwcPDw8PDwYODg4ODgYeDg4ODgQ0FAQEBAR0NBQEBAAAAAAAAAAAAAAAAAePDw8PDwcPDw8PDgYODg4ODAYeDg4MCAQ0FAQAAAR0MBAAAAAAAAAAAAAAAAAAAAf/Dw8PDwf/Dw8ODgf+Dg4MDAf+DgwICAf8FAAAAAf8MBAAAAf8cDAQAAf/8HAwEBf//w8PDwf//w8ODgf//g4MDAf//gwICAf//AAAAAf/+BAAAAf/8DAQAAf/8HAwEBf///8PDwf///8ODgf///4MDAf///wICAf///gAAAf///AAAAf///AQAAf///AwEBf/////Dwf////+Dgf////8DAf////4CAf////wAAf////wAAf////wAAf////wEBf//////8f//////4f//////xf//////jf//////Hf/////+Pf/////8ff/////8/+P7+/v7+8uDCggYO4cKCAgYOw4ICAgYOhwYHBwcPBwYHBwcPDw4PDw8PHw4PDw8PAAAAAAAAAAAAAAAA4cKCAgICw4ICAgIChwYHBwcHBwYHBwcHDw4PDw8PHw4PDw8PAAAAAAAAAAAAAAAA48KCAgICw4ICAgIChwYHBwcHBwYHBwcHDw4PDw8PHw4PDw8PAAAAAAAAAAAAAAAA/8KCAAAA/4ICAgIA/wYHBwcD/wYHBwcH/w4PDw8P/w4PDw8P//7/wICA//7DgAAA//6DAAAA//4DAgAA//4HBwMD//4HBwcH//4PDw8P//4PDw8P//7/wICA//7/gAAA//7/AQAA//7/AwAA//7/BwMD//7/BwcH//7/Dw8P//7/Dw8P//7//4D8//7//wAI//7//wAB//7//wED//7//wMH//7//wcP//7//w8P//7//w8P//7////8//7////4//7////x//7////j//7////H//7///+P//7///8f//7///8/+vj+/v7++Pz+/n5+58CGBg4ew4UGBg4ehwUHBw8fDw0PDw8fDw0PDw8fHx0fHx8fAAAAAAAAAAAAAAAAAAAAAAAAw4UGBgYGhwUHBwcHDw0PDw8PDw0PDw8PHx0fHx8fAAAAAAAAAAAAAAAAAAAAAAAAx4UHBwcHhwUHBwcHDw0PDw8PDw0PDw8PHx0fHx8fAAAAAAAAAAAAAAAAAAAAAAAA/4UHAwMB/wUHBwcD/w0PDw8H/w0PDw8P/x0fHx8f//3//ICA//3/gAAA//2HAQAA//0HAwEB//0HBwMD//0PDwcH//0PDw8P//0fHx8f//3//ICA//3/gAAA//3/AQAA//3/AwEB//3/BwMD//3/DwcH//3/Dw8P//3/Hx8f//3///j8//3//wD4//3//wAR//3//wED//3//wMH//3//wcP//3//w8f//3//x8f//3////8//3////4//3////x//3////j//3////H//3///+P//3///8f//3///8//Pr+/v7+/vD+/n5+8fr+fn5+z4EODh4+hwsPDx8/DwsPDx8/HxsfHx8/HxsfHx8//Pj+/v7+AAAAAAAAAAAAAAAAAAAAAAAAhwsPDw8PDwsPDw8PHxsfHx8fHxsfHx8f/vr+/v7+AAAAAAAAAAAAAAAAAAAAAAAAjwsPDw8PDwsPDw8PHxsfHx8fHxsfHx8f//r+/Pz4AAAAAAAAAAAAAAAAAAAAAAAA/wsPBwcD/wsPDw8H/xsfHx8P/xsfHx8f//v+/Pj4//v++AAA//v/AAAA//sPAwAA//sPBwMD//sPDwcH//sfHw8P//sfHx8f//v//Pj4//v/+AAA//v/AAAA//v/AwAA//v/BwMD//v/DwcH//v/Hw8P//v/Hx8f//v///j8//v///D4//v//wDx//v//wEj//v//wMH//v//wcP//v//w8f//v//x8///v////8//v////4//v////x//v////j//v////H//v///+P//v///8f//v///8//PT8/P7++PT8/P7+/OD8fH5+4/Z+fn5+nwMeHj5+DxcfHz9/HxcfHz9/Pzc/Pz9//PT8/Pz8+PT8/Pz8AAAAAAAAAAAAAAAAAAAAAAAADxcfHx8fHxcfHx8fPzc/Pz8//PT8/Pz8/PT8/Pz8AAAAAAAAAAAAAAAAAAAAAAAAHxcfHx8fHxcfHx8fPzc/Pz8///T8/Pz4//T8+PjwAAAAAAAAAAAAAAAAAAAAAAAA/xcfDw8H/xcfHx8P/zc/Pz8f//f8/Pj4//f8+PDw//f88AAA//f/AAAA//cfBwAA//cfDwcH//cfHw8P//c/Px8f//f//Pj4//f/+PDw//f/8AAA//f/AAAA//f/BwAA//f/DwcH//f/Hw8P//f/Px8f//f///j8//f///D4//f//+Dx//f//wDj//f//wNH//f//wcP//f//w8f//f//x8///f////8//f////4//f////x//f////j//f////H//f///+P//f///8f//f///8//Oz8/Pz++Oj4+Pz+8Oj4+Pz++cB4eHx+x29+fn5+Pwc/Pn5+Hy8/P39/Py8/P39//Oz8/Pz8+Oj4+Pj48Oj4+Pj4AAAAAAAAAAAAAAAAAAAAAAAAHy8/Pz8/Py8/Pz8//Oz8/Pz8+Oj4+Pj4+Oj4+Pj4AAAAAAAAAAAAAAAAAAAAAAAAPy8/Pz8/Py8/Pz8//+z8/Pz4/+j4+Pjw/+j48PDgAAAAAAAAAAAAAAAAAAAAAAAA/y8/Hx8P/y8/Pz8f/+/8/Pj4/+/4+PDw/+/48ODg/+/44AAA/+//AAAA/+8/DwAA/+8/Hw8P/+8/Px8f/+///Pj4/+//+PDw/+//8ODg/+//4AAA/+//AAAA/+//DwAA/+//Hw8P/+//Px8f/+////j8/+////D4/+///+Dw/+///8Di/+///wDH/+///weP/+///w8f/+///x8//+/////8/+/////4/+/////x/+/////j/+/////H/+////+P/+////8f/+////8/+Nj4+Pj8+Nj4+Pj88NDw8Pj84dDw8Pj884FwcHh8j19/fn5+fw9/f35+P19/f39/+Nj4+Pj4+Nj4+Pj48NDw8PDw4dDw8PDwAAAAAAAAAAAAAAAAAAAAAAAAPx9/f39/+Nj4+Pj4+Nj4+Pj48NDw8PDw8dDw8PDwAAAAAAAAAAAAAAAAAAAAAAAAf19/f39//9j4+Pj4/9j4+Pjw/9Dw8PDg/9Dw4ODAAAAAAAAAAAAAAAAAAAAAAAAA/19/Pz8f/9/4+Pj4/9/4+PDw/9/w8ODg/9/w4MDA/9/wwAAA/9//AAAA/99/HwAA/99/Px8f/9//+Pj4/9//+PDw/9//8ODg/9//4MDA/9//wAAA/9//AAAA/9//HwAA/9//Px8f/9////j8/9////D4/9///+Dw/9///8Dg/9///4DE/9///wCP/9///w8f/9///x8//9/////8/9/////4/9/////x/9/////j/9/////H/9////+P/9////8f/9////8/+Lj4+Pj48LDw8PD48LDw8PD44aDg4PD4w6FgYHB45wNhYHB4Hz9/f35+Xx9/f39/+Lj4+Pj48LDw8PDw8LDw8PDw4aDg4ODgw6FgYGBgAAAAAAAAAAAAAAAAAAAAAAAA+Lj4+Pj48LDw8PDw8LDw8PDw4aDg4ODg46Hg4ODgAAAAAAAAAAAAAAAAAAAAAAAA/7j4+Pj4/7Dw8PDw/7Dw8PDg/6Dg4ODA/6HgwMCAAAAAAAAAAAAAAAAAAAAAAAAA/7/4+Pj4/7/w8PDw/7/w8ODg/7/g4MDA/7/gwICA/7/hgAAA/7//AQAA/7//PwEB/7//+Pj4/7//8PDw/7//8ODg/7//4MDA/7//wICA/7//gAAA/7//AQAA/7//PwEB/7////j4/7////D4/7///+Dw/7///8Dg/7///4DA/7///wCI/7///wAf/7///x8//7/////8/7/////4/7/////x/7/////j/7/////H/7////+P/7////8f/7////8/+HDw8PDw8HDw8PDw4GDg4ODw4WDg4ODww0FAQGBwh0NBQGBwTwdDQWBwH39/f39/+HDw8PDw8HDw8PDw4GDg4ODg4WDg4ODgw0FAQEBAh0NBQEBAAAAAAAAAAAAAAAAA+HDw8PDw8HDw8PDw4GDg4ODg4WDg4ODgw0FAQEBAx0NBQEBAAAAAAAAAAAAAAAAA/3Dw8PDw/3Dw8PDw/2Dg4ODg/2Dg4ODA/0FAQEAA/0NBAAAAAAAAAAAAAAAAAAAA/3/w8PDw/3/w8PDw/3/g4ODg/3/g4MDA/3/AQAAA/3/BAAAA/3/DAQAA/3//AwEB/3//8PDw/3//8PDw/3//4ODg/3//4MDA/3//wAAA/3//gAAA/3//AQAA/3//AwEB/3////Dw/3////Dw/3///+Dw/3///8Dg/3///4DA/3///wCA/3///wAQ/3///wE//3/////8/3/////4/3/////x/3/////j/3/////H/3////+P/3////8f/3////8/+Pzg4P7+8ODAgAYO4MCAAgYOwYICAgYOgwcGBgYOBwcGBwcPDw8ODw8PHw8ODw8P+Pzg/v7+8ODAgAIG4MCAAgIGwYICAgIGgwcGBgYGBwcGBwcHDw8ODw8PHw8ODw8PAAAAAAAAAAAAAAAA4MCAAgICwYICAgICgwcGBgYGBwcGBwcHDw8ODw8PHw8ODw8PAAAAAAAAAAAAAAAA/8KCAgIC/4ICAgIC/wcGBwcH/wcGBwcH/w8ODw8P/w8ODw8PAAAAAAAAAAAAAAAA//+CAgAA//8CAgIC//8GBwcH//8GBwcH//8ODw8P//8ODw8P///+/4D8///+gwAA///+AwAA///+AwIC///+BwcH///+BwcH///+Dw8P///+Dw8P///+/4D8///+/wAI///+/wEB///+/wMD///+/wcH///+/wcP///+/w8P///+/w8P///+///8///+///4///+///x///+///j///+///H///+//+P///+//8f///+//8/+Pz4wP7+8PjAwH5+4MCAAA4ewYIABg4egwcEBg4eBw8NDw8fDw8NDw8fHx8dHx8f+Pz4wP7+8PjA/n5+4MCAAAYOwYIABgYOgwcEBgYOBw8NDw8PDw8NDw8PHx8dHx8fAAAAAAAAAAAAAAAAAAAAAAAAwYIABgYGgwcEBgYGBw8NDw8PDw8NDw8PHx8dHx8fAAAAAAAAAAAAAAAAAAAAAAAA/4cFBwcH/wcFBwcH/w8NDw8P/w8NDw8P/x8dHx8fAAAAAAAAAAAAAAAAAAAAAAAA//8FBwMD//8FBwcH//8NDw8P//8NDw8P//8dHx8f///9//z8///9/wD4///9BwEB///9BwMD///9BwcH///9Dw8P///9Dw8P///9Hx8f///9//z8///9/wD4///9/wER///9/wMD///9/wcH///9/w8P///9/w8f///9/x8f///9///8///9///4///9///x///9///j///9///H///9//+P///9//8f///9//8/+Pz4/v7+8PjwgH5+4PCAAH5+wYIAAB4+gwcCDh4+Bw8LDx8/Dx8bHx8/Hx8bHx8/+Pz4/v7+8PjwgH5+4PCAfn5+wYIAAA4egwcCDg4eBw8LDw8fDx8bHx8fHx8bHx8f+Pz4/v7+AAAAAAAAAAAAAAAAAAAAAAAAgwcCDg4OBw8LDw8PDx8bHx8fHx8bHx8f//76/v7+AAAAAAAAAAAAAAAAAAAAAAAA/w8LDw8P/w8LDw8P/x8bHx8f/x8bHx8f///6/vz8AAAAAAAAAAAAAAAAAAAAAAAA//8LDwcH//8LDw8P//8bHx8f//8bHx8f///7/vz8///7/vj4///7/wDx///7DwMD///7DwcH///7Dw8P///7Hx8f///7Hx8f///7//z8///7//j4///7/wDx///7/wMj///7/wcH///7/w8P///7/x8f///7/x8////7///8///7///4///7///x///7///j///7///H///7//+P///7//8f///7//8/+Pz0/P7+8Pjw/P7+4PDgAH5+weIAAH5+gwcCAD5+Bw8HHz9/Dx8XHz9/Hz83Pz9/+Pz0/Pz+8Pjw/Pz+4PDgAHx+weIAfn5+gwcCAB4+Bw8HHx8/Dx8XHx8/Hz83Pz8/+Pz0/Pz88Pjw/Pz8AAAAAAAAAAAAAAAAAAAAAAAABw8HHx8fDx8XHx8fHz83Pz8///z0/Pz8//z0/Pz8AAAAAAAAAAAAAAAAAAAAAAAA/x8XHx8f/x8XHx8f/z83Pz8////0/Pz8///0/Pj4AAAAAAAAAAAAAAAAAAAAAAAA//8XHw8P//8XHx8f//83Pz8////3/Pz8///3/Pj4///3/PDw///3/wDj///3HwcH///3Hw8P///3Hx8f///3Pz8////3//z8///3//j4///3//Dx///3/wDj///3/wdH///3/w8P///3/x8f///3/z8////3///8///3///4///3///x///3///j///3///H///3//+P///3//8f///3//8/+Pzs/Pz+8Pjo+Pz+4PDg+Pz+weBAAHx+g0cAAH5+Bw8HAH5+Dx8PP39/Hz8vP39/+Pzs/Pz88Pjo+Pj84PDg+Pj8weBAAHh8g0cAfn5+Bw8HAD5+Dx8PPz9/Hz8vPz9/+Pzs/Pz88Pjo+Pj44PDg+Pj4AAAAAAAAAAAAAAAAAAAAAAAADx8PPz8/Hz8vPz8///zs/Pz8//jo+Pj4//jo+Pj4AAAAAAAAAAAAAAAAAAAAAAAA/z8vPz8//z8vPz8////s/Pz8///o+Pj4///o+PDwAAAAAAAAAAAAAAAAAAAAAAAA//8vPx8f//8vPz8////v/Pz8///v+Pj4///v+PDw///v+ODg///v/wDH///vPw8P///vPx8f///vPz8////v//z8///v//j4///v//Dw///v/+Di///v/wDH///v/w+P///v/x8f///v/z8////v///8///v///4///v///x///v///j///v///H///v//+P///v//8f///v//8/+PjY+Pj88PjY+Pj84PDQ8Pj8weBAcHh8g0EAAHh8Bw8BAH5+Dx8PAX5+Hz8ff39/+PjY+Pj48PjY+Pj44PDQ8PD4weBAcHB4g0EAAHB4Bw8Bfn5+Dx8PAX5+Hz8ff39/+PjY+Pj48PjY+Pj44PDQ8PDwweBAcHBwAAAAAAAAAAAAAAAAAAAAAAAAHz8ff39///jY+Pj4//jY+Pj4//DQ8PDw//DQ8PDwAAAAAAAAAAAAAAAAAAAAAAAA/39ff39////Y+Pj4///Y+Pj4///Q8PDw///Q8ODgAAAAAAAAAAAAAAAAAAAAAAAA//9ffz8////f+Pj4///f+Pj4///f8PDw///f8ODg///f8MDA///f/wCP///ffx8f///ffz8////f//j8///f//j4///f//Dw///f/+Dg///f/8DE///f/wCP///f/x8f///f/z8////f///8///f///4///f///x///f///j///f///H///f//+P///f//8f///f//8/+Pi4+Pj48PCw8PD44PCw8PD4weAgYHB4g0EAYHB4BwMBAHB4Dx8DA35+Hz8fA39/+Pi4+Pj48PCw8PDw4PCw8PDwweAgYGBwg0EAYGBwBwMBAGBwDx8Df35+Hz8fA39/+Pi4+Pj48PCw8PDw4PCw8PDwweAgYGBgg0EAYGBgAAAAAAAAAAAAAAAAAAAAAAAA//i4+Pj4//Cw8PDw//Cw8PDw/+Cg4ODg/+Gg4ODgAAAAAAAAAAAAAAAAAAAAAAAA//+4+Pj4//+w8PDw//+w8PDw//+g4ODg//+g4MDAAAAAAAAAAAAAAAAAAAAAAAAA//+/+Pj4//+/8PDw//+/8PDw//+/4ODg//+/4MDA//+/4ICA//+//wAf//+//z8///+///j4//+///D4//+///Dw//+//+Dg//+//8DA//+//4CI//+//wAf//+//z8///+////8//+////4//+////x//+////j//+////H//+///+P//+///8f//+///8/+PBw8PDw8PBw8PDw4OBg4ODwweBgYGBwg0FAQGBwBwMBQGBwDwcDAWBwHz8HB39/+PBw8PDw8PBw8PDw4OBg4ODgweBgYGBgg0FAQEBgBwMBQEBgDwcDAUBgHz8Hf39/+PBw8PDw8PBw8PDw4OBg4ODgweBgYGBgg0FAQEBABwMBQEBAAAAAAAAAAAAAAAAA//Bw8PDw//Bw8PDw/+Bg4ODg/+Bg4ODg/0FAQEBA/0NBQEBAAAAAAAAAAAAAAAAA//9w8PDw//9w8PDw//9g4ODg//9g4ODg//9AQEBA//9BQAAAAAAAAAAAAAAAAAAA//9/8PDw//9/8PDw//9/4ODg//9/4ODg//9/wEBA//9/wAAA//9/wQAA//9//wE///9///Dw//9///Dw//9//+Dw//9//+Dg//9//8DA//9//4CA//9//wAQ//9//wE///9////8//9////4//9////x//9////j//9////H//9///+P//9///8f//9///8/+PjgwP7+8ODAgAYO4MCAAAYOwYAAAgYOgwMCBgYOBwcHBgYODw8PDg8PHw8PDg8P+PDgwMD+8ODAgAAG4MCAAAIGwYAAAgIGgwMCBgYGBwcHBgYGDw8PDg8PHw8PDg8P+PDgwP7+8ODAgAAC4MCAAAICwYAAAgICgwMCBgYGBwcHBgYGDw8PDg8PHw8PDg8PAAAAAAAAAAAAAAAA/8CAAAIC/4ACAgIC/wMGBgYG/wcHBgYG/w8PDg8P/w8PDg8PAAAAAAAAAAAAAAAA//+CAgIC//8CAgIC//8HBgcH//8HBgcH//8PDg8P//8PDg8PAAAAAAAAAAAAAAAA////AgIA////AgIC////BgcH////BgcH////Dg8P////Dg8P/////v/8/////gMI/////gMB/////gMD/////gcH/////gcP/////g8P/////g8P/////v/8/////v/4/////v/x/////v/j/////v/H/////v+P/////v8f/////v8/+PjwwP7+8PDAgH5+4MCAAA4ewYAAAA4egwMCBA4eBwcHDA4eDw8PDQ8fHx8fHR8f+PDgwID+8ODAgAB+4MCAAAAOwYAAAAYOgwMCBAYOBwcHDA4ODw8PDQ8PHx8fHR8f+PDgwID+8ODAgH5+4MCAAAAGwYAAAAYGgwMCBAYGBwcHDA4ODw8PDQ8PHx8fHR8fAAAAAAAAAAAAAAAAAAAAAAAA/4ACAAYG/wMGBAYG/wcPDA4O/w8PDQ8P/x8fHR8fAAAAAAAAAAAAAAAAAAAAAAAA//8HBQcH//8HBQcH//8PDQ8P//8PDQ8P//8fHR8fAAAAAAAAAAAAAAAAAAAAAAAA////BQcD////BQcH////DQ8P////DQ8P////HR8f/////f/8/////f/4/////QcR/////QcD/////QcH/////Q8P/////Q8f/////R8f/////f/8/////f/4/////f/x/////f/j/////f/H/////f+P/////f8f/////f8/+Pjw+P7+8PDggH5+4OCAAH5+wYAAAB4+gwMAAh4+BwcHCh4+Dw8PGx8/Hx8fGx8/+Pjw+P7+8ODAgAB+4MCAAAB+wYAAAAAegwMAAg4eBwcHCg4eDw8PGx8fHx8fGx8f+Pjw+P7+8ODAgAB+4MCAAH5+wYAAAAAOgwMAAg4OBwcHCg4ODw8PGx8fHx8fGx8f//j0+P7+AAAAAAAAAAAAAAAAAAAAAAAA/wMEAg4O/wcPCg4O/w8fGx8f/x8fGx8f///++v7+AAAAAAAAAAAAAAAAAAAAAAAA//8PCw8P//8PCw8P//8fGx8f//8fGx8f////+v78AAAAAAAAAAAAAAAAAAAAAAAA////Cw8H////Cw8P////Gx8f////Gx8f////+/78////+/74////+//x////+w8j////+w8H////+w8P////+x8f////+x8/////+//8////+//4////+//x////+//j////+//H////+/+P////+/8f////+/8/+Pj49P7+8PDg8P7+4ODAAH5+wcAAAH5+gwMAAD5+BwcDBj5+Dw8PFz9/Hx8fNz9/+Pj49Pz+8PDg8Pz+4MCAAAB+wYAAAAB+gwEAAAA+BwcDBh4+Dw8PFx8/Hx8fNz8/+Pj49Pz88PDg8Pz84MCAAAB8wYAAAH5+gwEAAAAeBwcDBh4eDw8PFx8fHx8fNz8///j89Pz8//Do8Pz8AAAAAAAAAAAAAAAAAAAAAAAA/wcLBh4e/w8fFx8f/x8/Nz8////89Pz8///89Pz8AAAAAAAAAAAAAAAAAAAAAAAA//8fFx8f//8fFx8f//8/Nz8/////9Pz8////9Pz4AAAAAAAAAAAAAAAAAAAAAAAA////Fx8P////Fx8f////Nz8/////9/z8////9/z4////9/zx////9//j////9x9H////9x8P////9x8f////9z8/////9//8////9//4////9//x////9//j////9//H////9/+P////9/8f////9/8/+Pj47Pz+8PDw6Pz+4ODAYHx+wcAAAHx+gwMAAH5+BwcDAH5+Dw8HD39/Hx8fL39/+Pj47Pz88PDw6Pj84ODAYHh8wYAAAAB8gwEAAAB+BwMBAAB+Dw8HDz9/Hx8fLz9/+Pj47Pz88PDw6Pj44ODAYHh4wYAAAAB4gwEAAH5+BwMBAAA+Dw8HDz8/Hx8fLz8///j87Pz8//D46Pj4/+DQYHh4AAAAAAAAAAAAAAAAAAAAAAAA/w8XDz8//x8/Lz8////87Pz8///46Pj4///46Pj4AAAAAAAAAAAAAAAAAAAAAAAA//8/Lz8///8/Lz8/////7Pz8////6Pj4////6PjwAAAAAAAAAAAAAAAAAAAAAAAA////Lz8f////Lz8/////7/z8////7/j4////7/jw////7/ji////7//H////7z+P////7z8f////7z8/////7//8////7//4////7//x////7//j////7//H////7/+P////7/8f////7/8/+Pj42Pj88PDw2Pj84ODgUHh8wcAAQHh8gwEAAHh8BwcBAH5+Dw8HAX5+Hx8PH39/+Pj42Pj48PDw2Pj44ODgUHB4wcAAQHB4gwEAAAB4BwMBAAB+DwcDAQB+Hx8PH39/+Pj42Pj48PDw2Pj44ODgUHBwwcAAQHBwgwEAAABwBwMBAH5+DwcDAQB+Hx8PH39///j42Pj4//D42Pj4/+DwUHBw/8AgQHBwAAAAAAAAAAAAAAAAAAAAAAAA/x8vH39////42Pj4///42Pj4///w0PDw///w0PDwAAAAAAAAAAAAAAAAAAAAAAAA//9/X39/////2Pj4////2Pj4////0PDw////0PDgAAAAAAAAAAAAAAAAAAAAAAAA////X38/////3/j8////3/j4////3/Dw////3/Dg////3/DE////3/+P////338f////338/////3//8////3//4////3//x////3//j////3//H////3/+P////3/8f////3/8/+Pj4uPj48PDwsPD44ODgMHB4wcBAIHB4gwEAAHB4BwMBAHB4Dw8DAX5+Hx8PA39/+Pj4uPj48PDwsPDw4ODgMHBwwcBAIGBwgwEAAGBwBwMBAABwDwcDAQB+Hw8HAwF/+Pj4uPj48PDwsPDw4ODgMHBwwcBAIGBggwEAAGBgBwMBAABgDwcDAX5+Hw8HAwF///j4uPj4//DwsPDw/+DwMHBw/8BgIGBg/wFAAGBgAAAAAAAAAAAAAAAAAAAAAAAA///4uPj4///wsPDw///wsPDw///goODg///goODgAAAAAAAAAAAAAAAAAAAAAAAA////uPj4////sPDw////sPDw////oODg////oODAAAAAAAAAAAAAAAAAAAAAAAAA////v/j4////v/D4////v/Dw////v+Dg////v+DA////v+CI////v/8f////v/8/////v//8////v//4////v//x////v//j////v//H////v/+P////v/8f////v/8/+PDwcPDw8PDwcPDw4ODgYGBwwcBAYGBwgwEAQGBwBwMBAGBwDwcDAWBwHx8HA39/+PDwcPDw8PDwcPDw4ODgYGBgwcBAYGBggwEAQEBgBwMBAEBgDwcDAQBgHw8HAwN/+PDwcPDw8PDwcPDw4ODgYGBgwcBAYGBggwEAQEBABwMBAEBADwcDAQBAHw8HA39///DwcPDw//DwcPDw/+DgYGBg/8BgYGBg/wFAQEBA/wMBAEBAAAAAAAAAAAAAAAAA///wcPDw///wcPDw///gYODg///gYODg//9AQEBA//9BQEBAAAAAAAAAAAAAAAAA////cPDw////cPDw////YODg////YODg////QEBA////QEAAAAAAAAAAAAAAAAAA////f/Dw////f/Dw////f+Dw////f+Dg////f8DA////f8CA////f8AQ////f/8/////f//8////f//4////f//x////f//j////f//H////f/+P////f/8f////f/8/+PDgwID+8ODAgAAO4MCAAAAOwYAAAAIOgwEAAgYOBwMDBgYODwcHDw4OHw8PDw4P+PDgwID+8ODAgAAG4MCAAAAGwYAAAAIGgwEAAgYGBwMDBgYGDwcHDw4OHw8PDw4P+PDgwIDA8ODAgAAA4MCAAAACwYAAAAICgwEAAgYGBwMDBgYGDwcHDw4OHw8PDw4P//DgwID+/+DAgAAA/8CAAAAC/4AAAAIC/wEAAgYG/wMDBgYG/wcHDw4O/w8PDw4PAAAAAAAAAAAAAAAA//+AAAAC//8AAgIC//8CBgYG//8HBgYG//8PDw4O//8PDw4PAAAAAAAAAAAAAAAA////AgIC////AgIC////BwYH////BwYH////Dw4P////Dw4PAAAAAAAAAAAAAAAA/////wIC/////wIC/////wYH/////wYP/////w4P/////w4P//////7///////77//////7z//////7j//////7H//////6P//////4f//////4/+PDgwID+8ODAgAB+4MCAAAAewYAAAAAegwEAAgQeBwMDBgweDwcHDwweHw8PHx0f+PDgwID+8ODAgAB+4MCAAAAOwYAAAAAOgwEAAgQOBwMDBgwODwcHDwwOHw8PHx0f+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAGgwEAAgQGBwMDBgwODwcHDwwOHw8PHx0f//DgwICA/+DAgAB+/8CAAAAA/4AAAAAG/wEAAgQG/wMDBgwO/wcHDwwO/w8PHx0fAAAAAAAAAAAAAAAAAAAAAAAA//8AAgAG//8CBgQG//8HDgwO//8PDwwO//8fHx0fAAAAAAAAAAAAAAAAAAAAAAAA////BwUH////BwUH////Dw0P////Dw0P////Hx0fAAAAAAAAAAAAAAAAAAAAAAAA/////wUH/////wUH/////w0P/////w0f/////x0f//////3///////3///////33//////3n//////3H//////2P//////0f//////0/+PDg8Pj+8ODAgAB+4MCAAAB+wYAAAAA+gwEAAAI+BwMDBgo+DwcHDxo+Hw8PHxs/+PDg8Pj+8ODAgAB+4MCAAAB+wYAAAAAegwEAAAIeBwMDBgoeDwcHDxoeHw8PHxsf+PDg8Pj+8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAIOBwMDBgoODwcHDxoeHw8PHxsf//Dg8Pj+/+DAgAAA/8CAAAB+/4AAAAAA/wEAAAIO/wMDBgoO/wcHDxoe/w8PHxsf///o9Pj+AAAAAAAAAAAAAAAAAAAAAAAA//8CBAIO//8HDgoO//8PHxoe//8fHxsf/////vr+AAAAAAAAAAAAAAAAAAAAAAAA////DwsP////DwsP////Hxsf////Hxsf//////r+AAAAAAAAAAAAAAAAAAAAAAAA/////wsP/////wsP/////xsf/////xs///////v+//////v+//////v///////vv//////vP//////uP//////sf//////s/+PDw+PT+8ODA4HB+4MCAAAB+wYAAAAB+gwEAAAB+BwMBAgZ+DwcHDxZ+Hw8PHzd/+PDw+PT+8ODA4HB+4MCAAAB+wYAAAAB+gwEAAAA+BwMBAgY+DwcHDxY+Hw8PHzc/+PDw+PT88ODA4HB84MCAAAAAwYAAAAAAgwEAAAAABwMBAgYeDwcHDxYeHw8PHzc///Dw+PT8/+DA4HB8/8CAAAAA/4AAAAB+/wEAAAAA/wMBAgYe/wcHDxYe/w8PHzc////4/PT8///Q6HB8AAAAAAAAAAAAAAAAAAAAAAAA//8FCgYe//8PHxYe//8fPzc//////PT8/////PT8AAAAAAAAAAAAAAAAAAAAAAAA////Hxcf////Hxcf////Pzc///////T8//////T8AAAAAAAAAAAAAAAAAAAAAAAA/////xcf/////xcf/////zc///////f8//////f8//////f9//////f///////ff//////ef//////cf//////c/+PDw+Oz+8ODg8Gh+4MCAQGB+wYAAAAB+gwEAAAB+BwMBAAB+DwcDBw5+Hw8PHy9/+PDw+Oz88ODg8Gh84MCAQGB8wYAAAAB8gwEAAAB+BwMBAAB+DwcDBw5+Hw8PHy9/+PDw+Oz88ODg8Gh44MCAQGB4wYAAAAAAgwEAAAAABwMBAAAADwcDBw4+Hw8PHy8///Dw+Oz8/+Dg8Gh4/8CAQGB4/4AAAAAA/wEAAAB+/wMBAAAA/wcDBw4+/w8PHy8////4/Oz8///w+Gh4//+gUGB4AAAAAAAAAAAAAAAAAAAAAAAA//8LFw4+//8fPy8//////Oz8////+Oj4////+Oj4AAAAAAAAAAAAAAAAAAAAAAAA////Py8/////Py8//////+z8/////+j4/////+j4AAAAAAAAAAAAAAAAAAAAAAAA/////y8//////y8//////+/8/////+/4/////+/5/////+/7/////+///////++//////+8//////+8/+PDw+Nj88ODg8Fh84MDAYFB8wYAAAEB8gwEAAAB8BwMBAAB+DwcDAQB+Hw8HDx9/+PDw+Nj48ODg8Fh44MDAYFB4wYAAAEB4gwEAAAB4BwMBAAB+DwcDAQB+Hw8HDx9/+PDw+Nj48ODg8Fh44MDAYFBwwYAAAEBwgwEAAAAABwMBAAAADwcDAQAAHw8HDx9///Dw+Nj4/+Dg8Fh4/8DAYFBw/4AAAEBw/wEAAAAA/wMBAAB+/wcDAQAA/w8HDx9////4+Nj4///w+Fh4///gcFBw//9AIEBwAAAAAAAAAAAAAAAAAAAAAAAA//8XLx9/////+Nj4////+Nj4////8NDw////8NDwAAAAAAAAAAAAAAAAAAAAAAAA////f19//////9j8/////9j4/////9Dw/////9DwAAAAAAAAAAAAAAAAAAAAAAAA/////19//////9/8/////9/4/////9/x/////9/z/////9/3/////9///////99//////99/+PDw+Lj48ODg8DB44MDAYDB4wYAAQCB4gwEAAAB4BwMBAAB4DwcDAQB+Hw8HAwF/+PDw+Lj48ODg8DBw4MDAYDBwwYAAQCBwgwEAAABwBwMBAABwDwcDAQB+Hw8HAwF/+PDw+Lj48ODg8DBw4MDAYDBwwYAAQCBggwEAAABgBwMBAAAADwcDAQAAHw8HAwEB//Dw+Lj4/+Dg8DBw/8DAYDBw/4AAQCBg/wEAAABg/wMBAAAA/wcDAQB+/w8HAwEB///4+Lj4///w8DBw///gcDBw//9AYCBg//8AQABgAAAAAAAAAAAAAAAAAAAAAAAA////+Lj4////8LDw////8LDw////4KDg////4KDgAAAAAAAAAAAAAAAAAAAAAAAA/////7j4/////7D4/////7Dw/////6Dg/////6DgAAAAAAAAAAAAAAAAAAAAAAAA/////7/8/////7/4/////7/x/////7/j/////7/n/////7/v/////7///////7//+PDw8HDw8ODg8HBw4MDAYGBwwYAAQGBwgwEAAEBwBwMBAABwDwcDAQBwHw8HAwF/+PDw8HDw8ODg8HBw4MDAYGBgwYAAQGBggwEAAEBgBwMBAABgDwcDAQBgHw8HAwF/+PDw8HDw8ODg8HBw4MDAYGBgwYAAQGBggwEAAEBABwMBAABADwcDAQAAHw8HAwED//Dw8HDw/+Dg8HBw/8DAYGBg/4AAQGBg/wEAAEBA/wMBAABA/wcDAQAA/w8HAwF////w8HDw///w8HBw///gYGBg//9AYGBg//8AQEBA//8BAABAAAAAAAAAAAAAAAAA////8HDw////8HDw////4GDg////4GDg////QEBA////QEBAAAAAAAAAAAAAAAAA/////3Dw/////3Dw/////2Dw/////2Dg/////0BA/////0BAAAAAAAAAAAAAAAAA/////3/8/////3/4/////3/x/////3/j/////3/H/////3/P/////3/f/////3//+PDgwID+8ODAgAAO4MCAAAAOwYAAAAAOgwEAAAIOBwMBAgYODwcDBw4OHw8HDw8O+PDgwICA8ODAgAAA4MCAAAAAwYAAAAACgwEAAAIGBwMBAgYGDwcDBw4OHw8HDw8O+PDgwICA8ODAgAAA4MCAAAAAwYAAAAACgwEAAAIGBwMBAgYGDwcDBw4OHw8HDw8O//DgwICA/+DAgAAA/8CAAAAA/4AAAAAC/wEAAAIG/wMBAgYG/wcDBw4O/w8HDw8O///gwICA///AgAAA//+AAAAA//8AAAAC//8AAAIG//8BAgYG//8DBw4O//8HDw8OAAAAAAAAAAAAAAAA////AAAA////AAIC////AgYG////BgYG////Dw4O////Dw8OAAAAAAAAAAAAAAAA/////wIC/////wIC/////wcG/////wcO/////w8O/////w8OAAAAAAAAAAAAAAAA///////y///////i///////G//////+O//////8e//////8++PDgwID88ODAgAB84MCAAAAcwYAAAAAcgwEAAAIcBwMBAgYcDwcDBw4cHw8HDx8d+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAIEBwMBAgYMDwcDBw4MHw8HDx8d+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAIEBwMBAgYMDwcDBw4MHw8HDx8d//DgwICA/+DAgAAA/8CAAAAA/4AAAAAA/wEAAAIE/wMBAgYM/wcDBw4M/w8HDx8d///gwICA///AgAAA//+AAAAA//8AAAAA//8AAAIE//8BAgYM//8DBw4M//8HDx8dAAAAAAAAAAAAAAAAAAAAAAAA////AAIA////AgYE////Bg4M////Dw4M////Hx8dAAAAAAAAAAAAAAAAAAAAAAAA/////wcF/////wcF/////w8N/////w8d/////x8dAAAAAAAAAAAAAAAAAAAAAAAA///////l///////F//////+N//////8d//////89+PDg4PD68ODAgAB64MCAAAB6wYAAAAA6gwEAAAA6BwMBAgY6DwcDBw46Hw8HDx87+PDg4PD48ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAgYKDwcDBw4aHw8HDx8b+PDg4PD48ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAgYKDwcDBw4aHw8HDx8b//Dg4PD4/+DAgAAA/8CAAAAA/4AAAAAA/wEAAAAC/wMBAgYK/wcDBw4a/w8HDx8b///g4PD4///AgAAA//+AAAAA//8AAAAA//8AAAAC//8BAgYK//8DBw4a//8HDx8b////6PT4AAAAAAAAAAAAAAAAAAAAAAAA////AgQC////Bg4K////Dx4a////Hx8b//////76AAAAAAAAAAAAAAAAAAAAAAAA/////w8L/////w8L/////x8b/////x87///////6AAAAAAAAAAAAAAAAAAAAAAAA///////L//////+L//////8b//////87+PDg8Pj28ODAwGB24MCAAAB2wYAAAAB2gwEAAAB2BwMBAAJ2DwcDBw52Hw8HDx93+PDg8Pj08ODAwGBw4MCAAAAAwYAAAAAAgwEAAAAABwMBAAIGDwcDBw4WHw8HDx83+PDg8Pj08ODAwGBw4MCAAAAAwYAAAAAAgwEAAAAABwMBAAIGDwcDBw4WHw8HDx83//Dg8Pj0/+DAwGBw/8CAAAAA/4AAAAAA/wEAAAAA/wMBAAIG/wcDBw4W/w8HDx83///g8Pj0///AwGBw//+AAAAA//8AAAAA//8AAAAA//8BAAIG//8DBw4W//8HDx83////+Pz0////0GhwAAAAAAAAAAAAAAAAAAAAAAAA////BAoG////Dx4W////Hz83//////z0//////z0AAAAAAAAAAAAAAAAAAAAAAAA/////x8X/////x8X/////z83///////0///////0AAAAAAAAAAAAAAAAAAAAAAAA//////+X//////8X//////83+PDg8Pju8ODA4HBu4MCAAEBuwYAAAABugwEAAABuBwMBAABuDwcDAwZuHw8HDx9v+PDg8Pjs8ODA4HBo4MCAAEBgwYAAAAAAgwEAAAAABwMBAAAADwcDAwYOHw8HDx8v+PDg8Pjs8ODA4HBo4MCAAEBgwYAAAAAAgwEAAAAABwMBAAAADwcDAwYOHw8HDx8v//Dg8Pjs/+DA4HBo/8CAAEBg/4AAAAAA/wEAAAAA/wMBAAAA/wcDAwYO/w8HDx8v///g8Pjs///A4HBo//+AAEBg//8AAAAA//8AAAAA//8BAAAA//8DAwYO//8HDx8v////+Pzs////8Hho////IFBgAAAAAAAAAAAAAAAAAAAAAAAA////CxYO////Hz8v//////zs//////jo//////joAAAAAAAAAAAAAAAAAAAAAAAA/////z8v/////z8v///////s///////o///////pAAAAAAAAAAAAAAAAAAAAAAAA//////8v//////8v+PDg8Pjc8ODA4HBc4MCAQGBcwYAAAABcgwEAAABcBwMBAABeDwcDAQBeHw8HBw9f+PDg8PjY8ODA4HBY4MCAQGBQwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HBw8f+PDg8PjY8ODA4HBY4MCAQGBQwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HBw8f//Dg8PjY/+DA4HBY/8CAQGBQ/4AAAABA/wEAAAAA/wMBAAAA/wcDAQAA/w8HBw8f///g8PjY///A4HBY//+AQGBQ//8AAABA//8AAAAA//8BAAAA//8DAQAA//8HBw8f////+PjY////8HhY////YHBQ////QCBAAAAAAAAAAAAAAAAAAAAAAAAA////Fy8f//////jc//////jY//////DQ//////DQAAAAAAAAAAAAAAAAAAAAAAAA/////39f///////c///////Y///////R///////TAAAAAAAAAAAAAAAAAAAAAAAA//////9f+PDg8Pi48ODA4HA44MCAQGA4wYAAAEA4gwEAAAA4BwMBAAA4DwcDAQA+Hw8HAwE/+PDg8Pi48ODA4HAw4MCAQGAwwYAAAEAggwEAAAAABwMBAAAADwcDAQAAHw8HAwEB+PDg8Pi48ODA4HAw4MCAQGAwwYAAAEAggwEAAAAABwMBAAAADwcDAQAAHw8HAwEB//Dg8Pi4/+DA4HAw/8CAQGAw/4AAAEAg/wEAAAAA/wMBAAAA/wcDAQAA/w8HAwEB///g8Pi4///A4HAw//+AQGAw//8AAEAg//8AAAAA//8BAAAA//8DAQAA//8HAwEB////+Pi4////8HAw////YHAw////QGAg////AEAAAAAAAAAAAAAAAAAAAAAAAAAA//////i4//////C4//////Cw/////+Cg/////+CgAAAAAAAAAAAAAAAAAAAAAAAA//////+8//////+4//////+x//////+j//////+nAAAAAAAAAAAAAAAAAAAAAAAA+PDg8PBw8ODA4HBw4MCAQGBwwYAAAEBwgwEAAABwBwMBAABwDwcDAQBwHw8HAwF/+PDg8PBw8ODA4HBw4MCAQGBgwYAAAEBggwEAAABABwMBAAAADwcDAQAAHw8HAwEB+PDg8PBw8ODA4HBw4MCAQGBgwYAAAEBggwEAAABABwMBAAAADwcDAQAAHw8HAwEB//Dg8PBw/+DA4HBw/8CAQGBg/4AAAEBg/wEAAABA/wMBAAAA/wcDAQAA/w8HAwEB///g8PBw///A4HBw//+AQGBg//8AAEBg//8AAABA//8BAAAA//8DAQAA//8HAwEB////8PBw////8HBw////YGBg////QGBg////AEBA////AAAAAAAAAAAAAAAAAAAA//////Bw//////Bw/////+Bw/////+Bg/////0BA/////0BAAAAAAAAAAAAAAAAA//////98//////94//////9x//////9j//////9H//////9PAAAAAAAAAAAAAAAA+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAAIGDwcDAwYOHw8HBw8P+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAAIGDwcDAwYOHw8HBw8P+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAAIGDwcDAwYOHw8HBw8P//DgwICA/+DAgAAA/8CAAAAA/4AAAAAA/wEAAAAC/wMBAAIG/wcDAwYO/w8HBw8P///gwICA///AgAAA//+AAAAA//8AAAAA//8AAAAC//8BAAIG//8DAwYO//8HBw8P////wICA////gAAA////AAAA////AAAA////AAAC////AAIG////AwYO////Bw8PAAAAAAAAAAAAAAAA/////wAA/////wAC/////wIG/////wYO/////w4O/////w8PAAAAAAAAAAAAAAAA///////z///////j///////H//////+P//////8f//////8/+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAAIGDwcDAwYOHw8HBw8f+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAAIGDwcDAwYOHw8HBw8f+PDgwICA8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAACBwMBAAIGDwcDAwYOHw8HBw8f//DgwICA/+DAgAAA/8CAAAAA/4AAAAAA/wEAAAAC/wMBAAIG/wcDAwYO/w8HBw8f///gwICA///AgAAA//+AAAAA//8AAAAA//8AAAAC//8BAAIG//8DAwYO//8HBw8f////wICA////gAAA////AAAA////AAAA////AAAC////AAIG////AwYO////Bw8fAAAAAAAAAAAAAAAAAAAAAAAA/////wAC/////wIG/////wYO/////w4e/////x8fAAAAAAAAAAAAAAAAAAAAAAAA///////n///////H//////+P//////8f//////8/+PDgwODw8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAAABwMBAAIGDwcDAwYOHw8HBw8f+PDgwODw8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAAABwMBAAIGDwcDAwYOHw8HBw8f+PDgwODw8ODAgAAA4MCAAAAAwYAAAAAAgwEAAAAABwMBAAIGDwcDAwYOHw8HBw8f//DgwODw/+DAgAAA/8CAAAAA/4AAAAAA/wEAAAAA/wMBAAIG/wcDAwYO/w8HBw8f///gwODw///AgAAA//+AAAAA//8AAAAA//8AAAAA//8BAAIG//8DAwYO//8HBw8f////wODw////gAAA////AAAA////AAAA////AAAA////AAIG////AwYO////Bw8f/////+j0AAAAAAAAAAAAAAAAAAAAAAAA/////wIE/////wYO/////w4e/////x8////////+AAAAAAAAAAAAAAAAAAAAAAAA///////P//////+P//////8f//////8/+PDg4PD48ODAgEBg4MCAAAAAwYAAAAAAgwEAAAAABwMBAAACDwcDAwYOHw8HBw8f+PDg4PD48ODAgEBg4MCAAAAAwYAAAAAAgwEAAAAABwMBAAACDwcDAwYOHw8HBw8f+PDg4PD48ODAgEBg4MCAAAAAwYAAAAAAgwEAAAAABwMBAAACDwcDAwYOHw8HBw8f//Dg4PD4/+DAgEBg/8CAAAAA/4AAAAAA/wEAAAAA/wMBAAAC/wcDAwYO/w8HBw8f///g4PD4///AgEBg//+AAAAA//8AAAAA//8AAAAA//8BAAAC//8DAwYO//8HBw8f////4PD4////gEBg////AAAA////AAAA////AAAA////AAAC////AwYO////Bw8f//////j8/////1BoAAAAAAAAAAAAAAAAAAAAAAAA/////wQK/////w4e/////x8////////8///////8AAAAAAAAAAAAAAAAAAAAAAAA//////+f//////8f//////8/+PDg4PD48ODAwGBw4MCAAABAwYAAAAAAgwEAAAAABwMBAAAADwcDAQIGHw8HBw8f+PDg4PD48ODAwGBw4MCAAABAwYAAAAAAgwEAAAAABwMBAAAADwcDAQIGHw8HBw8f+PDg4PD48ODAwGBw4MCAAABAwYAAAAAAgwEAAAAABwMBAAAADwcDAQIGHw8HBw8f//Dg4PD4/+DAwGBw/8CAAABA/4AAAAAA/wEAAAAA/wMBAAAA/wcDAQIG/w8HBw8f///g4PD4///AwGBw//+AAABA//8AAAAA//8AAAAA//8BAAAA//8DAQIG//8HBw8f////4PD4////wGBw////AABA////AAAA////AAAA////AAAA////AQIG////Bw8f//////j8/////3B4/////yBQAAAAAAAAAAAAAAAAAAAAAAAA/////woW/////x8////////8///////4///////5AAAAAAAAAAAAAAAAAAAAAAAA//////8///////8/+PDg4PD48ODAwGBw4MCAAEBgwYAAAAAAgwEAAAAABwMBAAAADwcDAQAAHw8HAwcP+PDg4PD48ODAwGBw4MCAAEBgwYAAAAAAgwEAAAAABwMBAAAADwcDAQAAHw8HAwcP+PDg4PD48ODAwGBw4MCAAEBgwYAAAAAAgwEAAAAABwMBAAAADwcDAQAAHw8HAwcP//Dg4PD4/+DAwGBw/8CAAEBg/4AAAAAA/wEAAAAA/wMBAAAA/wcDAQAA/w8HAwcP///g4PD4///AwGBw//+AAEBg//8AAAAA//8AAAAA//8BAAAA//8DAQAA//8HAwcP////4PD4////wGBw////AEBg////AAAA////AAAA////AAAA////AQAA////AwcP//////j8/////3B4/////2Bw/////0AgAAAAAAAAAAAAAAAAAAAAAAAA/////xcv///////8///////4///////x///////zAAAAAAAAAAAAAAAAAAAAAAAA//////9/+PDg4PD48ODAwGBw4MCAAEBgwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HAwEB+PDg4PD48ODAwGBw4MCAAEBgwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HAwEB+PDg4PD48ODAwGBw4MCAAEBgwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HAwEB//Dg4PD4/+DAwGBw/8CAAEBg/4AAAABA/wEAAAAA/wMBAAAA/wcDAQAA/w8HAwEB///g4PD4///AwGBw//+AAEBg//8AAABA//8AAAAA//8BAAAA//8DAQAA//8HAwEB////4PD4////wGBw////AEBg////AABA////AAAA////AAAA////AQAA////AwEB//////j4/////3B4/////2Bw/////0Bg/////wBAAAAAAAAAAAAAAAAAAAAAAAAA///////8///////4///////x///////j///////nAAAAAAAAAAAAAAAAAAAAAAAA+PDg4PDw8ODAwGBw4MCAAEBgwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HAwEB+PDg4PDw8ODAwGBw4MCAAEBgwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HAwEB+PDg4PDw8ODAwGBw4MCAAEBgwYAAAABAgwEAAAAABwMBAAAADwcDAQAAHw8HAwEB//Dg4PDw/+DAwGBw/8CAAEBg/4AAAABA/wEAAAAA/wMBAAAA/wcDAQAA/w8HAwEB///g4PDw///AwGBw//+AAEBg//8AAABA//8AAAAA//8BAAAA//8DAQAA//8HAwEB////4PDw////wGBw////AEBg////AABA////AAAA////AAAA////AQAA////AwEB//////Dw/////3Bw/////2Bw/////0Bg/////wBA/////wAAAAAAAAAAAAAAAAAA///////8///////4///////x///////j///////H///////PAAAAAAAAAAAAAAAA';
+if (typeof module !== 'undefined') module.exports = KPKDATA;
+
+// Final de rey y peón contra rey: tabla exacta (generada con retroanálisis) para guiar y comprobar.
+var KPK = (function (R, C, DATA) {
+  var bits = null;
+  function load() {
+    if (bits) return;
+    var raw;
+    if (typeof atob === 'function') { raw = atob(DATA); bits = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) bits[i] = raw.charCodeAt(i); }
+    else bits = Uint8Array.from(Buffer.from(DATA, 'base64'));
+  }
+  // Devuelve {wk,bk,p,stm} si la posición es rey blanco + peón blanco + rey negro; si no, null
+  function parts(s) {
+    var wk = -1, bk = -1, p = -1, n = 0;
+    for (var i = 0; i < 64; i++) {
+      var c = s.b[i];
+      if (!c) continue;
+      n++;
+      if (c === 'K') wk = i; else if (c === 'k') bk = i; else if (c === 'P') p = i; else return null;
+    }
+    if (n !== 3 || wk < 0 || bk < 0 || p < 0) return null;
+    return { wk: wk, bk: bk, p: p, stm: s.turn === 'w' ? 0 : 1 };
+  }
+  function is(s) { return !!parts(s); }
+  // ¿Gana el blanco desde esta posición (con la jugada que corresponda)?
+  function win(s) {
+    load();
+    var q = parts(s);
+    if (!q || !C.valid(q.stm, q.wk, q.bk, q.p)) return false;
+    var i = C.index(q.stm, q.wk, q.bk, q.p);
+    return !!(bits[i >> 3] & (1 << (i & 7)));
+  }
+  // Resultado teórico tras la jugada m (desde la posición s): 'win' o 'draw' (para las blancas)
+  function after(s, m) {
+    if (m.promo) return C.promoWins(s, m) ? 'win' : 'draw';
+    if (m.captured && s.turn === 'b') return 'draw';
+    var c = R.makeMove(s, m);
+    return win(c) ? 'win' : 'draw';
+  }
+  return { is: is, win: win, after: after, parts: parts };
+})(typeof Rules !== 'undefined' ? Rules : require('./rules.js'), typeof KPKCore !== 'undefined' ? KPKCore : require('./kpkcore.js'), typeof KPKDATA !== 'undefined' ? KPKDATA : require('./kpkdata.js'));
+if (typeof module !== 'undefined') module.exports = KPK;
+
+// Jugadas guía de los finales con tabla (rey y peón contra rey)
+var EGP = (function (R, AI, K) {
+  function legal(s) { return R.genLegal(s); }
+  // ¿Se gana (se corona) en a lo sumo k jugadas sueltas (plies) desde s? Se apoya en la tabla para podar.
+  var memo = {};
+  function winIn(s, k) {
+    if (k <= 0) return false;
+    var q = K.parts(s);
+    if (!q || !K.win(s)) return false;
+    var key = ((q.stm * 64 + q.wk) * 64 + q.bk) * 64 * 64 + q.p * 64 + k, hit = memo[key];
+    if (hit !== undefined) return hit;
+    var lg = legal(s), res = false, i, c;
+    if (q.stm === 0) {
+      for (i = 0; i < lg.length && !res; i++) {
+        if (lg[i].promo) { if (K.after(s, lg[i]) === 'win') res = true; continue; }
+        c = R.makeMove(s, lg[i]);
+        if (K.win(c) && winIn(c, k - 1)) res = true;
+      }
+    } else {
+      res = lg.length > 0;
+      for (i = 0; i < lg.length && res; i++) {
+        if (lg[i].captured) { res = false; break; }
+        c = R.makeMove(s, lg[i]);
+        if (!K.win(c) || !winIn(c, k - 1)) res = false;
+      }
+    }
+    memo[key] = res;
+    return res;
+  }
+  function minDepth(s, max) {
+    for (var k = 1; k <= max; k++) if (winIn(s, k)) return k;
+    return max + 1;
+  }
+  // Atacante (blancas) en posición ganada: la jugada que corona antes
+  function attackMove(s) {
+    var lg = legal(s), wins = lg.filter(function (m) { return K.after(s, m) === 'win'; }), i, k;
+    if (!wins.length) return null;
+    var promo = wins.filter(function (m) { return m.promo === 'q'; });
+    if (promo.length) return promo[0];
+    if (wins.length === 1) return wins[0];
+    var kids = wins.map(function (m) { return R.makeMove(s, m); });
+    for (k = 1; k <= 70; k++) for (i = 0; i < wins.length; i++) if (winIn(kids[i], k)) return wins[i];
+    return wins[0];
+  }
+  // Defensor sin tablas posibles: la jugada que más retrasa la coronación
+  function stubborn(s) {
+    var lg = legal(s), best = null, bd = -1;
+    lg.forEach(function (m) {
+      if (m.captured) return;
+      var d = minDepth(R.makeMove(s, m), 70);
+      if (d > bd) { bd = d; best = m; }
+    });
+    return best || lg[0];
+  }
+  // Defensor (negras): una jugada que mantiene las tablas; si no hay, la que más resiste según la búsqueda
+  function holdMove(s) {
+    var lg = legal(s), draws = lg.filter(function (m) { return K.after(s, m) === 'draw'; });
+    if (!draws.length) return null;
+    var cap = draws.filter(function (m) { return m.captured; });
+    if (cap.length) return cap[0];
+    if (draws.length === 1) return draws[0];
+    var best = draws[0], bs = -1e9;
+    draws.forEach(function (m) { var sc = AI.scoreMove(s, m, 4, 200); if (sc !== null && sc > bs) { bs = sc; best = m; } });
+    return best;
+  }
+  function defendMove(s) { return holdMove(s) || stubborn(s); }
+  function attackerEngine(s) { return AI.rootSearch(s, 4, 500, 0)[0].m; }
+  return { attackMove: attackMove, holdMove: holdMove, defendMove: defendMove, attackerEngine: attackerEngine };
+})(typeof Rules !== 'undefined' ? Rules : require('./rules.js'), typeof AI !== 'undefined' ? AI : require('./ai.js'), typeof KPK !== 'undefined' ? KPK : require('./kpk.js'));
+if (typeof module !== 'undefined') module.exports = EGP;
 
 (function () {
 "use strict";
@@ -2906,20 +3301,29 @@ function leavePuzzle() {
 }
 
 /* ---------- Finales: practicar técnica contra un rival que defiende bien ---------- */
-var EG = { active: false, idx: 0, g: null, sel: -1, locked: false, state: 'play', hintStep: 0, hintM: null, last: null, pop: -1, notice: null, token: 0, board: null, n: 0 };
+var EG = { active: false, idx: 0, g: null, sel: -1, locked: false, state: 'play', hintStep: 0, hintM: null, last: null, pop: -1, notice: null, token: 0, board: null, n: 0, user: 'w' };
 
 function curEnding() { return Endgames.LIST[EG.idx]; }
-function endDoneCount() { return Endgames.LIST.filter(function (e) { return prog.end[e.id]; }).length; }
+function endDoneCount() {
+  return Endgames.LIST.filter(function (e) { return prog.end[e.id]; }).length + Openings.LIST.filter(function (o) { return o.kind === 'final' && prog.open[o.id] !== undefined; }).length;
+}
+function endTotal() { return Endgames.LIST.length + Openings.LIST.filter(function (o) { return o.kind === 'final'; }).length; }
 
 function renderEndList() {
   var nx = -1, html = '';
   Endgames.LIST.forEach(function (e, i) { if (nx < 0 && !prog.end[e.id]) nx = i; });
-  html = '<div class="level"><div class="level-h"><h3>Nivel 5 · Finales</h3><span class="n">' + endDoneCount() + '/' + Endgames.LIST.length + '</span></div>' +
-    '<p class="level-sub">Técnica para ganar posiciones simples. El rival se defiende lo mejor que puede.</p>';
+  html = '<div class="level"><div class="level-h"><h3>Nivel 5 · Finales</h3><span class="n">' + endDoneCount() + '/' + endTotal() + '</span></div>' +
+    '<p class="level-sub">Técnica para ganar o salvar posiciones simples. El rival se defiende lo mejor que puede.</p>';
   Endgames.LIST.forEach(function (e, i) {
     var d = !!prog.end[e.id];
     html += '<button type="button" class="lrow' + (d ? ' done' : '') + (i === nx ? ' next' : '') + '" data-end="' + e.id + '"><span class="dot">' + (d ? '✓' : (i + 1)) + '</span>' +
-      '<span class="t">' + esc(e.title) + '</span><span class="go" aria-hidden="true">›</span></button>';
+      '<span class="t">' + esc(e.title) + '<small>' + (e.goal === 'hold' ? 'Defiendes tú' : e.goal === 'mate' ? 'Da jaque mate' : 'Corona el peón') + '</small></span><span class="go" aria-hidden="true">›</span></button>';
+  });
+  Openings.LIST.forEach(function (o) {
+    if (o.kind !== 'final') return;
+    var r = prog.open[o.id], d = r !== undefined;
+    html += '<button type="button" class="lrow' + (d ? ' done' : '') + '" data-open="' + o.id + '"><span class="dot">' + (d ? '✓' : '♜') + '</span>' +
+      '<span class="t">' + esc(o.title) + '<small>' + esc(o.sub) + '</small></span><span class="go" aria-hidden="true">›</span></button>';
   });
   html += '</div>';
   $('endList').innerHTML = html;
@@ -2936,6 +3340,7 @@ function loadEnding() {
   var e = curEnding();
   EG.token++;
   EG.g = new R.Game(e.fen);
+  EG.user = e.user || 'w';
   EG.sel = -1; EG.locked = false; EG.state = 'play'; EG.hintStep = 0; EG.hintM = null; EG.last = null; EG.pop = -1; EG.notice = null; EG.n = 0;
   $('egTitle').textContent = e.title;
   $('egNext').hidden = true; $('egHint').disabled = false;
@@ -2943,6 +3348,7 @@ function loadEnding() {
   drawEnding();
   egCoach([{ k: 'tip', who: 'Objetivo', t: e.intro }, { k: 'info', who: 'Consejo', t: e.tips[0] }]);
   window.scrollTo(0, 0);
+  if (EG.g.s.turn !== EG.user) engineReply();
 }
 
 function egCoach(items) { renderCoach($('egCoach'), items); }
@@ -2953,7 +3359,7 @@ function drawEnding() {
   var hf = -1, ht = -1;
   if (EG.hintStep >= 1 && EG.hintM && EG.state === 'play' && !EG.locked) { hf = EG.hintM.from; if (EG.hintStep >= 2) ht = EG.hintM.to; }
   EG.board.draw({
-    s: s, flip: false, sel: EG.sel, moves: moves, last: EG.last,
+    s: s, flip: EG.user === 'b', sel: EG.sel, moves: moves, last: EG.last,
     check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, hf: hf, ht: ht, pop: EG.pop
   });
   $('egStep').textContent = 'Jugada ' + Math.min(EG.n + (EG.state === 'play' ? 1 : 0), e.cap) + ' de ' + e.cap;
@@ -2976,17 +3382,29 @@ function endTap(i) {
   egCoach(items);
 }
 
-function endMove(m) {
-  var e = curEnding(), s = EG.g.s, child = R.makeMove(s, m), oppLegal = R.genLegal(child), st = R.status(child);
-  EG.sel = -1;
-  if (st.result === 'stalemate') {
-    EG.notice = 'Esa jugada deja al rey rival sin movimientos y sin estar en jaque: es ahogado y la partida terminaría en tablas. Elige otra.';
-  } else if (st.result !== 'checkmate' && !m.promo && oppLegal.some(function (c) { return c.captured && c.captured.toLowerCase() !== 'k'; })) {
-    EG.notice = 'Con esa jugada el rey rival podría capturar tu pieza sin que puedas recuperarla. Protégela o ponla fuera de su alcance.';
+// Si la jugada no conviene, devuelve el motivo; si está bien, ''
+function endProblem(e, s, m) {
+  var child = R.makeMove(s, m), st = R.status(child), oppLegal = R.genLegal(child);
+  if (e.goal === 'hold') {
+    if (e.tb && KPK.is(s) && KPK.after(s, m) === 'win') return 'Con esa jugada las blancas ganan la partida. Busca otra: en cada paso hay una jugada que salva las tablas.';
+    return '';
   }
-  if (EG.notice && st.result !== 'checkmate') {
+  if (st.result === 'stalemate') return 'Esa jugada deja al rey rival sin movimientos y sin estar en jaque: es ahogado y la partida terminaría en tablas. Elige otra.';
+  if (e.tb && KPK.is(s) && KPK.win(s) && KPK.after(s, m) === 'draw') return 'Con esa jugada el rival consigue tablas aunque la posición está ganada. Piensa en la oposición o en las casillas clave y elige otra.';
+  if (st.result !== 'checkmate' && !m.promo && oppLegal.some(function (c) { return c.captured && c.captured.toLowerCase() !== 'k'; })) {
+    return 'Con esa jugada el rey rival podría capturar tu pieza sin que puedas recuperarla. Protégela o ponla fuera de su alcance.';
+  }
+  return '';
+}
+
+function endMove(m) {
+  var e = curEnding(), s = EG.g.s, st = R.status(R.makeMove(s, m));
+  EG.sel = -1;
+  var problem = endProblem(e, s, m);
+  if (problem) {
+    EG.notice = problem;
     drawEnding();
-    egCoach([{ k: 'warn', who: 'Ojo', t: EG.notice }, { k: 'tip', who: 'Objetivo', t: e.intro }]);
+    egCoach([{ k: 'warn', who: 'Ojo', t: problem }, { k: 'tip', who: 'Objetivo', t: e.intro }]);
     return;
   }
   EG.notice = null;
@@ -2994,18 +3412,36 @@ function endMove(m) {
   EG.last = { from: m.from, to: m.to }; EG.pop = m.to; EG.n++; EG.hintStep = 0; EG.hintM = null;
   if (e.goal === 'mate' && st.result === 'checkmate') { endWin(); return; }
   if (e.goal === 'promote' && m.promo) { endWin(); return; }
-  if (st.over) { endFail('La partida terminó en tablas. ' + (st.result === 'stalemate' ? 'Fue ahogado.' : '')); return; }
-  if (EG.n >= e.cap) { endFail('Se acabaron las ' + e.cap + ' jugadas. Con la técnica correcta se llega antes: prueba de nuevo y usa las pistas.'); return; }
+  if (e.goal === 'hold' && (m.captured || (st.over && st.result !== 'checkmate'))) { endWin(); return; }
+  if (st.over) { endFail('La partida terminó en tablas.' + (st.result === 'stalemate' ? ' Fue ahogado.' : '')); return; }
+  if (EG.n >= e.cap) {
+    if (e.goal === 'hold') { endWin(); return; }
+    endFail('Se acabaron las ' + e.cap + ' jugadas. Con la técnica correcta se llega antes: prueba de nuevo y usa las pistas.');
+    return;
+  }
+  engineReply();
+}
+
+function engineMove(e, s) {
+  if (e.tb && KPK.is(s)) return e.goal === 'hold' ? EGP.attackerEngine(s) : EGP.defendMove(s);
+  return AI.rootSearch(s, 4, 500, 0)[0].m;
+}
+
+function engineReply() {
+  var e = curEnding(), tk = EG.token;
   EG.locked = true;
   drawEnding();
-  var tk = EG.token;
   setTimeout(function () {
     if (tk !== EG.token) return;
-    var d = AI.rootSearch(EG.g.s, 4, 500, 0)[0].m;
+    var d = engineMove(e, EG.g.s);
     EG.g.play(d);
     EG.last = { from: d.from, to: d.to }; EG.pop = d.to; EG.locked = false;
     var st2 = R.status(EG.g.s);
-    if (st2.over) { endFail('La partida terminó en tablas.'); return; }
+    if (e.goal === 'hold' && d.promo) { endFail('Las blancas coronaron. Prueba otra vez y busca la jugada que salva las tablas.'); return; }
+    if (st2.over) {
+      if (e.goal === 'hold' && st2.result !== 'checkmate') { endWin(); return; }
+      endFail('La partida terminó en tablas.'); return;
+    }
     drawEnding();
     egCoach([{ k: 'tip', who: 'Consejo', t: e.tips[EG.n % e.tips.length] }]);
   }, 520);
@@ -3016,8 +3452,7 @@ function endWin() {
   EG.state = 'solved'; EG.locked = false;
   prog.end[e.id] = true; saveProg();
   drawEnding();
-  var last = EG.g.sans.length;
-  egCoach([{ k: 'good', who: 'Conseguido', t: e.ok + ' Lo lograste en ' + EG.n + ' jugadas.' }]);
+  egCoach([{ k: 'good', who: 'Conseguido', t: e.ok + (e.goal === 'hold' ? ' Aguantaste ' + EG.n + ' jugadas.' : ' Lo lograste en ' + EG.n + ' jugadas.') }]);
   var more = Endgames.LIST.some(function (x, i) { return i > EG.idx; });
   $('egNext').textContent = more ? 'Siguiente final' : 'Terminar';
   $('egNext').hidden = false; $('egHint').disabled = true;
@@ -3031,14 +3466,16 @@ function endFail(msg) {
 
 function endHint() {
   if (EG.state !== 'play' || EG.locked) return;
+  var e = curEnding();
   if (!EG.hintM) {
     egCoach([{ k: 'info', who: 'Pista', t: 'Pensando…' }]);
-    var r = AI.rootSearch(EG.g.s, 6, 1500, 0);
-    EG.hintM = r[0].m;
+    var s = EG.g.s;
+    if (e.tb && KPK.is(s)) EG.hintM = e.goal === 'hold' ? EGP.holdMove(s) : EGP.attackMove(s);
+    if (!EG.hintM) EG.hintM = AI.rootSearch(s, 6, 1500, 0)[0].m;
   }
   EG.hintStep = Math.min(2, EG.hintStep + 1);
   drawEnding();
-  egCoach([{ k: 'tip', who: 'Pista ' + EG.hintStep + ' de 2', t: EG.hintStep === 1 ? 'Mira la pieza resaltada: esa es la que conviene mover.' : 'Va a la casilla resaltada.' }, { k: 'info', who: 'Consejo', t: curEnding().tips[EG.n % curEnding().tips.length] }]);
+  egCoach([{ k: 'tip', who: 'Pista ' + EG.hintStep + ' de 2', t: EG.hintStep === 1 ? 'Mira la pieza resaltada: esa es la que conviene mover.' : 'Va a la casilla resaltada.' }, { k: 'info', who: 'Consejo', t: e.tips[EG.n % e.tips.length] }]);
 }
 
 function endNext() {
@@ -3055,16 +3492,35 @@ var OP = { active: false, idx: 0, g: null, i: 0, sel: -1, locked: false, state: 
 
 function curOpening() { return Openings.LIST[OP.idx]; }
 function stripSan(x) { return x.replace(/[+#]/g, ''); }
+
 function bookMove(s, san) {
   var legal = R.genLegal(s);
   return legal.filter(function (m) { return stripSan(R.san(s, m, legal)) === san; })[0] || null;
 }
 
+
+// Variantes que siguen siendo posibles según lo jugado hasta ahora
+function activeLines() {
+  var o = curOpening(), sans = OP.g.sans.map(stripSan);
+  return o.lines.filter(function (ln) {
+    for (var k = 0; k < sans.length; k++) if (!ln.m[k] || ln.m[k].s !== sans[k]) return false;
+    return true;
+  });
+}
+function nextEntries() {
+  return activeLines().filter(function (ln) { return ln.m.length > OP.g.sans.length; }).map(function (ln) { return ln.m[OP.g.sans.length]; });
+}
+function userEntry() { var e = nextEntries(); return e.length ? e[0] : null; }
+function oppEntry() { var e = nextEntries(); return e.length ? e[(Math.random() * e.length) | 0] : null; }
+
 function renderOpenList() {
   var html = '<div class="level"><div class="level-h"><h3>Nivel 6 · Aperturas</h3><span class="n">' +
-    Openings.LIST.filter(function (o) { return prog.open[o.id] !== undefined; }).length + '/' + Openings.LIST.length + '</span></div>' +
-    '<p class="level-sub">Aprende a empezar bien: cada jugada viene con su razón. Tres para blancas y tres para negras.</p>';
-  Openings.LIST.forEach(function (o, i) {
+    Openings.LIST.filter(function (o) { return o.kind !== 'final' && prog.open[o.id] !== undefined; }).length + '/' + Openings.LIST.filter(function (o) { return o.kind !== 'final'; }).length + '</span></div>' +
+    '<p class="level-sub">Aprende a empezar bien: cada jugada viene con su razón. Con variantes: el rival no siempre responde igual.</p>';
+  var nn = 0;
+  Openings.LIST.forEach(function (o) {
+    if (o.kind === 'final') return;
+    var i = nn++;
     var r = prog.open[o.id], d = r !== undefined;
     html += '<button type="button" class="lrow' + (d ? ' done' : '') + '" data-open="' + o.id + '"><span class="dot">' + (d ? '✓' : (i + 1)) + '</span>' +
       '<span class="t">' + esc(o.title) + '<small>' + (d ? (r === 0 ? 'Sin errores' : r + (r === 1 ? ' error' : ' errores')) + ' · ' : '') + esc(o.sub) + '</small></span><span class="go" aria-hidden="true">›</span></button>';
@@ -3082,21 +3538,22 @@ function openOpening(id) {
 function loadOpening() {
   var o = curOpening();
   OP.token++;
-  OP.g = new R.Game();
+  OP.g = new R.Game(o.fen);
   OP.i = 0; OP.sel = -1; OP.locked = false; OP.state = 'play'; OP.errs = 0; OP.hintStep = 0; OP.last = null; OP.pop = -1; OP.notice = null;
   $('opTitle').textContent = o.title;
   $('opNext').hidden = true; $('opHint').disabled = false;
-  $('topSub').textContent = 'Nivel 6 · Aperturas';
+  $('topSub').textContent = o.kind === 'final' ? 'Nivel 5 · Finales' : 'Nivel 6 · Aperturas';
+  $('opBack').innerHTML = o.kind === 'final' ? '&larr; Finales' : '&larr; Aperturas';
   drawOpening();
-  var intro = { k: 'tip', who: 'Objetivo', t: 'Juegas con ' + (o.side === 'w' ? 'blancas' : 'negras') + '. Encuentra las jugadas de la apertura: el rival responderá con la línea principal.' };
+  var intro = o.kind === 'final' ? { k: 'tip', who: 'Objetivo', t: 'Juegas con blancas. Ganas la posición con la técnica de Lucena; el rival defiende con jaques.' } : { k: 'tip', who: 'Objetivo', t: 'Juegas con ' + (o.side === 'w' ? 'blancas' : 'negras') + '. Encuentra las jugadas de la apertura: el rival responderá con la línea principal.' };
   if (o.side === 'b') { opponentReply([intro]); }
   else renderCoach($('opCoach'), [intro, { k: 'info', who: 'Tu turno', t: hintText() }]);
   window.scrollTo(0, 0);
 }
 
-function hintText() { return 'Encuentra la siguiente jugada de la apertura. Si dudas, usa Pista.'; }
+function hintText() { return 'Encuentra la siguiente jugada ' + (curOpening().kind === 'final' ? 'de la técnica' : 'de la apertura') + '. Si dudas, usa Pista.'; }
 
-function expectedMove() { return bookMove(OP.g.s, curOpening().line[OP.i].s); }
+function expectedMove() { var e = userEntry(); return e ? bookMove(OP.g.s, e.s) : null; }
 
 function drawOpening() {
   var o = curOpening(), s = OP.g.s;
@@ -3110,7 +3567,8 @@ function drawOpening() {
     s: s, flip: o.side === 'b', sel: OP.sel, moves: moves, last: OP.last,
     check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, hf: hf, ht: ht, pop: OP.pop
   });
-  $('opStep').textContent = 'Jugada ' + Math.min(Math.ceil((OP.g.moves.length + 1) / 2), Math.ceil(o.line.length / 2)) + ' de ' + Math.ceil(o.line.length / 2);
+  var tot = Math.max.apply(null, activeLines().map(function (ln) { return ln.m.length; }).concat([1]));
+  $('opStep').textContent = 'Jugada ' + Math.min(Math.ceil((OP.g.moves.length + 1) / 2), Math.ceil(tot / 2)) + ' de ' + Math.ceil(tot / 2);
   $('opMoves').textContent = OP.g.sans.length ? fmtLine(R.START, OP.g.sans) : '';
 }
 
@@ -3132,8 +3590,9 @@ function opTap(i) {
 }
 
 function opMove(m) {
-  var o = curOpening(), want = o.line[OP.i], s = OP.g.s;
+  var o = curOpening(), want = userEntry(), s = OP.g.s;
   OP.sel = -1;
+  if (!want) return;
   if (stripSan(R.san(s, m)) !== want.s) {
     OP.errs++;
     var good = expectedMove();
@@ -3147,7 +3606,7 @@ function opMove(m) {
   var reasonTxt = want.t;
   OP.g.play(m);
   OP.last = { from: m.from, to: m.to }; OP.pop = m.to; OP.i++; OP.hintStep = 0;
-  if (OP.i >= o.line.length) { finishOpening([{ k: 'good', who: R.san(s, m), t: reasonTxt }]); return; }
+  if (!nextEntries().length) { finishOpening([{ k: 'good', who: OP.g.sans[OP.g.sans.length - 1], t: reasonTxt }]); return; }
   opponentReply([{ k: 'good', who: OP.g.sans[OP.g.sans.length - 1], t: reasonTxt }]);
 }
 
@@ -3158,11 +3617,11 @@ function opponentReply(items) {
   renderCoach($('opCoach'), items);
   setTimeout(function () {
     if (tk !== OP.token) return;
-    var line = o.line[OP.i], m = bookMove(OP.g.s, line.s);
+    var line = oppEntry(), m = bookMove(OP.g.s, line.s);
     OP.g.play(m);
     OP.last = { from: m.from, to: m.to }; OP.pop = m.to; OP.i++; OP.locked = false;
     var out = [{ k: 'info', who: 'Rival: ' + OP.g.sans[OP.g.sans.length - 1], t: line.t }];
-    if (OP.i >= o.line.length) { drawOpening(); finishOpening(out); return; }
+    if (!nextEntries().length) { drawOpening(); finishOpening(out); return; }
     out.push({ k: 'tip', who: 'Tu turno', t: hintText() });
     drawOpening();
     renderCoach($('opCoach'), items.slice(0, 1).concat(out));
@@ -3176,9 +3635,10 @@ function finishOpening(items) {
   if (prev === undefined || OP.errs < prev) prog.open[o.id] = OP.errs;
   saveProg();
   drawOpening();
-  items.push({ k: 'good', who: OP.errs === 0 ? '¡Línea completa sin errores!' : 'Línea completa', t: o.plan });
+  var fin = activeLines()[0];
+  items.push({ k: 'good', who: OP.errs === 0 ? '¡Línea completa sin errores!' : 'Línea completa', t: fin.plan });
   renderCoach($('opCoach'), items);
-  $('opNext').textContent = OP.idx + 1 < Openings.LIST.length ? 'Siguiente apertura' : 'Terminar';
+  $('opNext').textContent = opNextIdx() >= 0 ? (o.kind === 'final' ? 'Siguiente final' : 'Siguiente apertura') : 'Terminar';
   $('opNext').hidden = false; $('opHint').disabled = true;
 }
 
@@ -3187,11 +3647,17 @@ function opHint() {
   OP.hintStep = Math.min(3, OP.hintStep + 1);
   drawOpening();
   var o = curOpening();
-  var txt = OP.hintStep === 1 ? o.line[OP.i].t : OP.hintStep === 2 ? 'Mira la pieza marcada.' : 'Va a la casilla marcada.';
+  var txt = OP.hintStep === 1 ? userEntry().t : OP.hintStep === 2 ? 'Mira la pieza marcada.' : 'Va a la casilla marcada.';
   renderCoach($('opCoach'), [{ k: 'tip', who: 'Pista ' + OP.hintStep + ' de 3', t: txt }]);
 }
+function opNextIdx() {
+  var k = curOpening().kind;
+  for (var i = OP.idx + 1; i < Openings.LIST.length; i++) if (Openings.LIST[i].kind === k) return i;
+  return -1;
+}
 function opNext() {
-  if (OP.idx + 1 < Openings.LIST.length) { OP.idx++; loadOpening(); } else leaveOpening();
+  var n = opNextIdx();
+  if (n >= 0) { OP.idx = n; loadOpening(); } else leaveOpening();
 }
 function leaveOpening() { OP.active = false; OP.token++; showTab('learn'); }
 
@@ -3613,7 +4079,9 @@ function init() {
   $('egNext').addEventListener('click', endNext);
   $('endList').addEventListener('click', function (e) {
     var t = up(e.target, 'end', $('endList'));
-    if (t) openEnding(t.dataset.end);
+    if (t) { openEnding(t.dataset.end); return; }
+    var u = up(e.target, 'open', $('endList'));
+    if (u) openOpening(u.dataset.open);
   });
   PZ.board = makeBoard($('pzBoard'));
   PZ.board.onTap = puzzleTap;
