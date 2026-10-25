@@ -222,6 +222,20 @@ details.card ul, details.card ol { margin: 0; padding-left: 20px; display: flex;
 code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6px; padding: 1px 6px; font-size: 13.5px; }
 #coachLog { max-height: 260px; overflow: auto; }
 
+/* Tácticas y revisión */
+.dots { display: flex; gap: 8px; }
+.dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid currentColor; opacity: .55; }
+.dots i.on { background: currentColor; opacity: 1; }
+.lrow .t small { display: block; font-weight: 400; font-size: 13px; color: var(--muted); }
+.lrow[disabled] { opacity: .6; }
+.rvstats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 10px 0; text-align: center; }
+.rvstats div { background: var(--surface2); border-radius: 12px; padding: 10px 4px; }
+.rvstats b { display: block; font-family: var(--mono); font-size: 20px; font-variant-numeric: tabular-nums; }
+.rvstats small { font-size: 11.5px; color: var(--muted); }
+#pzPts { margin-left: auto; }
+.card.over .big { margin-top: 10px; }
+#rvBody .bar { color: var(--accent); margin-top: 10px; }
+
 </style>
 
 <div id="app">
@@ -258,6 +272,37 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
         <button class="btn" id="lsReset" type="button">Reiniciar</button>
         <button class="btn primary" id="lsNext" type="button" hidden>Siguiente</button>
       </div>
+    </section>
+
+    <!-- Tácticas -->
+    <section id="v-tact" class="view" hidden>
+      <div id="tactHome" class="view"></div>
+    </section>
+
+    <!-- Problema -->
+    <section id="v-puzzle" class="view" hidden>
+      <div class="head">
+        <button class="btn ghost" id="pzBack" type="button">&larr; Salir</button>
+        <span class="step" id="pzStep"></span>
+        <span class="step" id="pzPts"></span>
+      </div>
+      <h2 id="pzTitle"></h2>
+      <div class="board-wrap"><div id="pzBoard"></div></div>
+      <div class="coach" id="pzCoach" aria-live="polite"></div>
+      <div class="actions">
+        <button class="btn" id="pzHint" type="button">Pista</button>
+        <button class="btn" id="pzShow" type="button">Ver solución</button>
+        <button class="btn primary" id="pzNext" type="button" hidden>Siguiente</button>
+      </div>
+    </section>
+
+    <!-- Revisión de partida -->
+    <section id="v-review" class="view" hidden>
+      <div class="head">
+        <button class="btn ghost" id="rvBack" type="button">&larr; Volver a la partida</button>
+      </div>
+      <h2>Revisión de tu partida</h2>
+      <div id="rvBody" class="view"></div>
     </section>
 
     <!-- Jugar -->
@@ -386,6 +431,9 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
     <div class="in" id="tabs">
       <button type="button" data-tab="learn" class="on">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V6.5A2.5 2.5 0 0 1 6.5 4H20v13H6.5A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20"/></svg>Aprender
+      </button>
+      <button type="button" data-tab="tact">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg>Tácticas
       </button>
       <button type="button" data-tab="play">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5 3.5-5 3.5z"/></svg>Jugar
@@ -1028,7 +1076,7 @@ var AI = (function (R) {
 
   // Profundización iterativa con límite de tiempo. Devuelve [{m, sc}] ordenado, del último nivel completo.
   function rootSearch(s, maxDepth, ms, margin) {
-    var moves = R.genLegal(s), best = null;
+    var moves = R.genLegal(s), best = null, doneDepth = 0;
     if (!moves.length) return [];
     order(moves);
     deadline = Date.now() + ms; timedOut = false; nodes = 0;
@@ -1045,12 +1093,14 @@ var AI = (function (R) {
       if (timedOut) break;
       res.sort(function (a, b) { return b.sc - a.sc; });
       best = res;
+      doneDepth = d;
       moves = res.map(function (x) { return x.m; });
       if (bestSc > MATE - 100) break;
     }
     if (!best) {
       best = moves.map(function (m) { return { m: m, sc: 0 }; });
     }
+    best.depth = doneDepth;
     return best;
   }
 
@@ -1081,12 +1131,19 @@ var AI = (function (R) {
     return pool[(Math.random() * pool.length) | 0].m;
   }
 
+  // Valor exacto de una jugada concreta a una profundidad dada (null si se acabó el tiempo).
+  function scoreMove(s, m, depth, ms) {
+    deadline = Date.now() + ms; timedOut = false; nodes = 0;
+    var sc = -search(R.makeMove(s, m), depth - 1, -INF, INF, 1);
+    return timedOut ? null : sc;
+  }
+
   function best(s, ms) {
     var res = rootSearch(s, 4, ms || 700, 0);
     return res.length ? res[0] : null;
   }
 
-  return { VAL: VAL, val: val, evalWhite: evalWhite, choose: choose, best: best, rootSearch: rootSearch, mateIn1: mateIn1 };
+  return { VAL: VAL, val: val, evalWhite: evalWhite, choose: choose, best: best, rootSearch: rootSearch, scoreMove: scoreMove, mateIn1: mateIn1, MATE: MATE };
 })(typeof Rules !== 'undefined' ? Rules : require('./rules.js'));
 if (typeof module !== 'undefined') module.exports = AI;
 
@@ -1285,14 +1342,127 @@ var Coach = (function (R, AI) {
     return out;
   }
 
-  return { review: review, afterOpponent: afterOpponent, hint: hint, phaseTip: phaseTip, material: material, lost: lost, gains: gains, name: name, art: art };
+  return { review: review, afterOpponent: afterOpponent, hint: hint, why: why, phaseTip: phaseTip, material: material, lost: lost, gains: gains, name: name, art: art };
 })(typeof Rules !== 'undefined' ? Rules : require('./rules.js'), typeof AI !== 'undefined' ? AI : require('./ai.js'));
 if (typeof module !== 'undefined') module.exports = Coach;
+
+var Solver = (function (R) {
+  'use strict';
+
+  function uci(m) { return R.sqName(m.from) + R.sqName(m.to) + (m.promo || ''); }
+
+  function matesIn1(s, legal) {
+    legal = legal || R.genLegal(s);
+    var out = [];
+    for (var i = 0; i < legal.length; i++) {
+      var c = R.makeMove(s, legal[i]);
+      if (R.inCheck(c, c.turn) && R.genLegal(c).length === 0) out.push(legal[i]);
+    }
+    return out;
+  }
+
+  // ¿El bando que mueve en s fuerza mate en n jugadas propias?
+  // quiet: la primera jugada puede ser sin jaque. En los pasos siguientes solo se consideran jaques.
+  function forces(s, n, quiet) {
+    var legal = R.genLegal(s);
+    if (n === 1) return matesIn1(s, legal).length > 0;
+    for (var i = 0; i < legal.length; i++) {
+      var c = R.makeMove(s, legal[i]);
+      if (!quiet && !R.inCheck(c, c.turn)) continue;
+      if (replyAll(c, n - 1)) return true;
+    }
+    return false;
+  }
+
+  // c: el rival tiene el turno. Todas sus respuestas deben perder por mate en n.
+  function replyAll(c, n) {
+    var replies = R.genLegal(c);
+    if (!replies.length) return R.inCheck(c, c.turn);
+    for (var j = 0; j < replies.length; j++) {
+      if (!forces(R.makeMove(c, replies[j]), n, false)) return false;
+    }
+    return true;
+  }
+
+  // Jugadas del bando que mueve que fuerzan mate en n.
+  function solve(s, n, quiet) {
+    var legal = R.genLegal(s), out = [];
+    if (n === 1) return matesIn1(s, legal);
+    for (var i = 0; i < legal.length; i++) {
+      var c = R.makeMove(s, legal[i]);
+      if (!quiet && !R.inCheck(c, c.turn)) continue;
+      if (replyAll(c, n - 1)) out.push(legal[i]);
+    }
+    return out;
+  }
+
+  // ¿La jugada m (del bando que mueve en s) fuerza mate en n?
+  function moveForces(s, m, n, quiet) {
+    var c = R.makeMove(s, m);
+    if (n === 1) return R.inCheck(c, c.turn) && R.genLegal(c).length === 0;
+    if (!quiet && !R.inCheck(c, c.turn)) return false;
+    return replyAll(c, n - 1);
+  }
+
+  // Menor k <= n con el que el atacante fuerza mate desde d.
+  function minK(d, n) {
+    for (var k = 1; k <= n; k++) if (forces(d, k, false)) return k;
+    return n + 1;
+  }
+
+  // Mejor defensa: la respuesta que más retrasa el mate. c: rival a mover, n: jugadas que le quedan al atacante.
+  function bestDefense(c, n) {
+    var replies = R.genLegal(c), best = null, bk = -1;
+    for (var i = 0; i < replies.length; i++) {
+      var k = minK(R.makeMove(c, replies[i]), n);
+      if (k > bk) { bk = k; best = replies[i]; }
+    }
+    return best;
+  }
+
+  // Línea principal: [{m, by:'a'|'d'}...] empezando por la jugada atacante m1.
+  function line(s, m1, n) {
+    var out = [], cur = s, m = m1, k = n;
+    while (m) {
+      out.push(m);
+      cur = R.makeMove(cur, m);
+      k--;
+      if (k <= 0) break;
+      var d = bestDefense(cur, k);
+      if (!d) break;
+      out.push(d);
+      cur = R.makeMove(cur, d);
+      var cand = solve(cur, k, false);
+      m = cand[0] || null;
+    }
+    return out;
+  }
+
+  return { uci: uci, matesIn1: matesIn1, forces: forces, replyAll: replyAll, solve: solve, moveForces: moveForces, bestDefense: bestDefense, minK: minK, line: line };
+})(typeof Rules !== 'undefined' ? Rules : require('./rules.js'));
+if (typeof module !== 'undefined') module.exports = Solver;
+
+var Puzzles = (function () {
+  var LIST = [{"id":"m1-001","k":"m1","fen":"6K1/8/6kq/7p/6pP/8/8/8 b - - 15 60","sol":["h6g7"],"th":null,"n":1},{"id":"m1-002","k":"m1","fen":"4r3/2P5/1b4pp/8/7k/8/r7/7K b - - 2 39","sol":["e8e1"],"th":null,"n":1},{"id":"m1-003","k":"m1","fen":"3Q4/5k2/p2P4/1p6/8/4p1R1/8/6K1 w - - 0 37","sol":["d8e7"],"th":null,"n":1},{"id":"m1-004","k":"m1","fen":"K1b4N/p3kp2/1q1p4/7p/8/8/8/8 b - - 0 33","sol":["b6b7"],"th":null,"n":1},{"id":"m1-005","k":"m1","fen":"8/8/4p3/1p5p/QPp5/6K1/5N1P/5k2 w - - 4 34","sol":["a4d1"],"th":null,"n":1},{"id":"m1-006","k":"m1","fen":"3r4/2k4p/p4b2/2p5/2n4P/8/2r5/1K6 b - - 1 40","sol":["c4a3"],"th":null,"n":1},{"id":"m1-007","k":"m1","fen":"3r4/2k3bp/p7/2p2P2/2n4P/8/1r6/K7 b - - 0 38","sol":["d8d1"],"th":null,"n":1},{"id":"m1-008","k":"m1","fen":"3r4/2k3bp/p4P2/2p5/2n4P/8/2r5/K7 b - - 0 39","sol":["d8d1"],"th":null,"n":1},{"id":"m1-009","k":"m1","fen":"1r6/p3b3/2k1p2p/8/P1b3P1/4P3/8/K7 b - - 1 29","sol":["e7f6"],"th":null,"n":1},{"id":"m1-010","k":"m1","fen":"8/8/3B4/1P3p2/PP5k/K4B1p/7P/6R1 w - - 2 43","sol":["d6e7"],"th":null,"n":1},{"id":"m1-011","k":"m1","fen":"7r/Q4pp1/B1k1p3/7p/4N3/P7/7r/4K3 w - - 0 25","sol":["a7b7"],"th":null,"n":1},{"id":"m1-012","k":"m1","fen":"2b4r/p1K1kppp/3p3P/8/8/6q1/1r6/8 b - - 0 29","sol":["g3c3"],"th":null,"n":1},{"id":"m1-013","k":"m1","fen":"8/7N/5b2/8/3pP1P1/1P1Pk3/4B2P/3K1R2 w - - 1 39","sol":["f1f3"],"th":null,"n":1},{"id":"m1-014","k":"m1","fen":"3k4/5Q2/5pp1/2Pp4/P7/3P4/1RN1K1P1/5B2 w - - 1 30","sol":["b2b8"],"th":null,"n":1},{"id":"m1-015","k":"m1","fen":"3k4/5Q2/6p1/2Pp1p2/P7/3PK3/1RN3P1/5B2 w - - 0 31","sol":["b2b8"],"th":null,"n":1},{"id":"m1-016","k":"m1","fen":"8/1rQ5/1p6/p7/Pk4P1/1P1P1P2/8/R5KR w - - 1 28","sol":["c7c4"],"th":null,"n":1},{"id":"m1-017","k":"m1","fen":"1n4Q1/8/6rR/p1B2k2/5P2/1P3K2/P1PP4/RNQ5 w - - 1 29","sol":["g8g6"],"th":null,"n":1},{"id":"m1-018","k":"m1","fen":"r2Q4/4p3/p1k1P1p1/P1p5/5p2/1p1P2P1/8/3K4 w - - 3 35","sol":["d8d7"],"th":null,"n":1},{"id":"m1-019","k":"m1","fen":"4k3/1p4pn/n2p4/1q2p3/3PPp1r/B4K1b/8/8 b - d3 0 29","sol":["b5f1"],"th":null,"n":1},{"id":"m1-020","k":"m1","fen":"4k3/1p4pn/n2p3r/1q2p3/4Pp1P/B4K1b/3P4/8 b - - 1 28","sol":["b5f1"],"th":null,"n":1},{"id":"m1-021","k":"m1","fen":"1n2k3/3p1p2/4p3/1p4B1/p2p2P1/P4B2/1P2QP2/2R1K3 w - - 0 24","sol":["c1c8"],"th":"Mate del pasillo","n":1},{"id":"m1-022","k":"m1","fen":"rn4Q1/8/7p/p1B2k2/5P1r/1P3K2/P1PP4/RNQ4R w - - 1 27","sol":["g8f7"],"th":null,"n":1},{"id":"m1-023","k":"m1","fen":"4kbnr/1pB1p1pp/2b2p2/8/2PqPP2/1P6/3P3P/2R4K b k e3 0 19","sol":["c6e4"],"th":null,"n":1},{"id":"m1-024","k":"m1","fen":"r2qk1n1/p1p1pp2/nP6/8/1P6/2P4p/PB2b2P/2K5 b q - 0 16","sol":["d8d1"],"th":null,"n":1},{"id":"m1-025","k":"m1","fen":"r2qk1n1/p3pp2/nPp5/8/1P6/P1P4p/1B2b2P/2K5 b q - 0 17","sol":["d8d1"],"th":null,"n":1},{"id":"m1-026","k":"m1","fen":"2b1k3/1pp3pn/n6r/1q1Pp3/4Pp1P/5K1R/3P4/2B5 b - - 2 26","sol":["b5f1"],"th":null,"n":1},{"id":"m1-027","k":"m1","fen":"1nbq3r/1pp3p1/4k3/5p1p/r7/5P1P/4PPB1/4K1NR b - - 2 17","sol":["a4a1"],"th":"Mate del pasillo","n":1},{"id":"m1-028","k":"m1","fen":"4kb2/r4p1p/4pB1n/1P6/4N3/7P/2P1PP1P/3QKB1R w K - 3 17","sol":["d1d8"],"th":null,"n":1},{"id":"m1-029","k":"m1","fen":"1nb1kb2/2pp1pp1/3p4/1r6/1p1P4/PP2P1P1/2P2q2/R6K b - - 1 19","sol":["b5h5"],"th":null,"n":1},{"id":"m1-030","k":"m1","fen":"rq4nr/1p1k3p/8/p1p5/P2P3p/P3pPP1/4P2K/1R3BNR b - - 0 20","sol":["b8g3"],"th":null,"n":1},{"id":"m1-031","k":"m1","fen":"r2qkb1r/pp2pp2/8/2p4p/3B4/1PK3Pb/P1P1PP2/RN4R1 b kq - 1 12","sol":["d8d4"],"th":null,"n":1},{"id":"m1-032","k":"m1","fen":"4kb1r/1p1p3p/p3pp2/2r3P1/6n1/PP6/3PP3/RNB1KBNR b k - 0 17","sol":["c5c1"],"th":"Mate del pasillo","n":1},{"id":"m1-033","k":"m1","fen":"4kb1r/2p1pp1p/Q4n1p/1p6/3P1P2/2P1p3/1P4PP/4K1NR w Kk - 0 16","sol":["a6c8"],"th":"Mate del pasillo","n":1},{"id":"m1-034","k":"m1","fen":"r1b2k1r/p2p1pp1/n4np1/1p6/1P1P4/7P/2P1PPP1/q1Q1KB1R b K - 1 15","sol":["a1c1"],"th":"Mate del pasillo","n":1},{"id":"m1-035","k":"m1","fen":"rnb1k1n1/1p1pp2Q/2p2p2/p7/3P4/P3P3/1PPK1P1P/R1B2BNR w q - 0 12","sol":["h7g8"],"th":"Mate del pasillo","n":1},{"id":"m1-036","k":"m1","fen":"Q1q1kbnr/4pp1p/3p2p1/2p5/1P5P/N6P/PP1PPP2/R1B1KB1R w KQk - 0 11","sol":["a8c8"],"th":"Mate del pasillo","n":1},{"id":"m1-037","k":"m1","fen":"rnb1k2r/pppp1ppp/4p3/8/6nq/P6B/R1PPPP2/1NBQK1NR b Kkq - 0 6","sol":["h4f2"],"th":null,"n":1},{"id":"m1-038","k":"m1","fen":"rn2kb1r/p1Q1pppp/1p1p4/8/4nP2/3P4/PP1N2PP/R1B1KBNR w KQkq - 0 9","sol":["c7c8"],"th":"Mate del pasillo","n":1},{"id":"m1-039","k":"m1","fen":"2bqkbQr/prppp3/1p5p/5p2/P2P4/8/R2BPPPP/1N2KBNR w Kk f6 0 10","sol":["g8g6"],"th":null,"n":1},{"id":"m1-040","k":"m1","fen":"rnbq1bnr/p3p2p/1pp5/3p2P1/1Pk1P3/P5Pp/2PPKP2/R1BQ1B2 w - d6 0 14","sol":["e2e3"],"th":null,"n":1},{"id":"m2-001","k":"m2","fen":"8/3P4/8/1Q2R3/6k1/8/8/6K1 w - - 1 43","sol":["e5e4","g4g3","b5b3"],"th":null,"n":2},{"id":"m2-002","k":"m2","fen":"7k/4P3/6R1/5P2/1P4P1/8/8/3K4 w - - 6 62","sol":["e7e8q","h8h7","e8g8"],"th":null,"n":2},{"id":"m2-003","k":"m2","fen":"8/4n1k1/8/p7/P7/1r6/6K1/3r4 b - - 1 42","sol":["d1d2","g2g1","b3b1"],"th":null,"n":2},{"id":"m2-004","k":"m2","fen":"8/8/7R/5p2/8/2B1k1p1/4B3/4K3 w - - 2 39","sol":["h6e6","e3f4","c3d2"],"th":null,"n":2},{"id":"m2-005","k":"m2","fen":"4k3/5p2/b1pp4/4p3/8/8/3q4/K6n b - - 11 45","sol":["d2c1","a1a2","a6c4"],"th":null,"n":2},{"id":"m2-006","k":"m2","fen":"k7/2Q5/8/8/1B3K2/NPP5/P2P4/R7 w - - 20 54","sol":["c7c8","a8a7","b4c5"],"th":null,"n":2},{"id":"m2-007","k":"m2","fen":"k7/8/8/2Q5/2P5/5KP1/2P5/1NB1NB2 w - - 1 34","sol":["c5c8","a8a7","c1e3"],"th":null,"n":2},{"id":"m2-008","k":"m2","fen":"7k/2p5/Q7/2Pp4/1p6/8/P3P1B1/4K3 w - - 1 34","sol":["a6h6","h8g8","g2d5"],"th":null,"n":2},{"id":"m2-009","k":"m2","fen":"2b2k2/4rn2/1p6/6p1/6P1/8/1RPP4/1N1K4 b - - 1 27","sol":["c8g4","d1c1","e7e1"],"th":"Mate del pasillo","n":2},{"id":"m2-010","k":"m2","fen":"6n1/r3b3/5kp1/3p1p2/5P2/4K1P1/5r2/8 b - - 0 31","sol":["e7c5","e3d3","a7a3"],"th":null,"n":2},{"id":"m2-011","k":"m2","fen":"8/R5P1/Bk1B1p2/3P4/3K4/6P1/7R/3b4 w - - 4 41","sol":["d6c5","b6a5","a6c4"],"th":null,"n":2},{"id":"m2-012","k":"m2","fen":"1nb1k3/1p1p2R1/2p5/Q3p3/2P5/P7/P3NK2/8 w - - 1 29","sol":["a5e5","e8f8","e5e7"],"th":null,"n":2},{"id":"m2-013","k":"m2","fen":"5Q2/3k3p/2p5/p1p5/1bP5/3K2N1/7P/5R2 w - - 1 33","sol":["f1f7","d7e6","f8e7"],"th":null,"n":2},{"id":"m2-014","k":"m2","fen":"1Bb5/3p4/7p/2k2p2/2P5/1Q2pP2/4P3/5K2 w - - 0 31","sol":["b3b5","c5d4","b8e5"],"th":null,"n":2},{"id":"m2-015","k":"m2","fen":"8/1k6/8/K3np2/2r5/8/8/8 b - - 0 49","sol":["b7c6","a5a6","c4a4"],"th":null,"n":2},{"id":"m2-016","k":"m2","fen":"4k3/8/8/7p/4q3/6K1/7p/8 b - - 3 62","sol":["h2h1q","g3f2","e4e1"],"th":null,"n":2},{"id":"m2-017","k":"m2","fen":"1Q6/8/8/k2K4/4P2P/8/8/8 w - - 5 64","sol":["d5c5","a5a4","b8b4"],"th":null,"n":2},{"id":"m2-018","k":"m2","fen":"K7/8/k6P/8/8/8/1p6/n7 b - - 0 58","sol":["b2b1q","h6h7","b1b7"],"th":null,"n":2},{"id":"m2-019","k":"m2","fen":"K7/7P/k7/8/8/8/1pn5/8 b - - 0 59","sol":["b2b1q","h7h8q","b1b7"],"th":null,"n":2},{"id":"m2-020","k":"m2","fen":"r7/pb1p4/n7/6pr/6k1/P7/7q/RN3K2 b - - 1 32","sol":["h2g2","f1e1","h5h1"],"th":null,"n":2},{"id":"m2-021","k":"m2","fen":"8/8/7p/7p/3k4/8/K7/5q2 b - - 1 62","sol":["d4c3","a2a3","f1a1"],"th":null,"n":2},{"id":"m2-022","k":"m2","fen":"8/8/7p/7p/3k4/K7/3q4/8 b - - 5 64","sol":["d4c4","a3a4","d2a2"],"th":null,"n":2},{"id":"m2-023","k":"m2","fen":"3k4/8/2R5/8/3K2P1/5P1R/8/8 w - - 20 47","sol":["h3h7","d8e8","c6c8"],"th":null,"n":2},{"id":"m2-024","k":"m2","fen":"4r3/8/7p/6p1/7k/6b1/8/7K b - - 2 45","sol":["h4h3","h1g1","e8e1"],"th":null,"n":2},{"id":"m2-025","k":"m2","fen":"6k1/5q2/p7/8/p7/1p6/8/3K4 b - - 1 53","sol":["f7f2","d1c1","f2c2"],"th":null,"n":2},{"id":"m2-026","k":"m2","fen":"6k1/8/p7/8/p7/1p6/3q4/5K2 b - - 11 58","sol":["b3b2","f1g1","b2b1q"],"th":null,"n":2},{"id":"m2-027","k":"m2","fen":"6k1/8/p7/8/p7/1p6/2q5/7K b - - 23 64","sol":["b3b2","h1g1","b2b1q"],"th":null,"n":2},{"id":"m2-028","k":"m2","fen":"8/8/6k1/3P4/2q5/5p2/5P1K/8 b - - 5 58","sol":["c4g4","d5d6","g4g2"],"th":null,"n":2},{"id":"m2-029","k":"m2","fen":"5bn1/4k1p1/p1p2p2/P3p2K/4Pr2/2Pr4/1R6/8 b - - 6 29","sol":["d3h3","h5g6","h3h6"],"th":null,"n":2},{"id":"m2-030","k":"m2","fen":"4k3/pQ6/5ppn/2Pp4/P7/3P4/1RN1K1P1/5B2 w - - 0 28","sol":["b7c8","e8e7","b2b7"],"th":null,"n":2},{"id":"m2-031","k":"m2","fen":"r4k1r/p1pn1p1p/1p6/1q6/5p2/7P/3P3K/7R b - - 0 23","sol":["b5e2","h2g1","h8g8"],"th":null,"n":2},{"id":"m2-032","k":"m2","fen":"K2k4/6p1/7p/6p1/4P3/8/8/1r6 b - - 5 38","sol":["d8c7","a8a7","b1a1"],"th":null,"n":2},{"id":"m2-033","k":"m2","fen":"6r1/6pp/5k1b/8/7K/1r6/8/8 b - - 1 40","sol":["f6f5","h4h5","b3h3"],"th":null,"n":2},{"id":"m2-034","k":"m2","fen":"3qk3/p7/p2p4/P1p1p1p1/2P3p1/1K3n2/7P/1b6 b - - 2 32","sol":["d8b8","b3c3","b8b4"],"th":null,"n":2},{"id":"m2-035","k":"m2","fen":"4k3/rp3pp1/p2p3n/7K/P4P2/8/3p2P1/RN6 b - f3 0 25","sol":["d2d1q","h5h4","d1g4"],"th":null,"n":2},{"id":"m2-036","k":"m2","fen":"2b2B2/2p5/1R6/1P2kp2/8/2PK2P1/3PP3/1NQ3N1 w - - 1 27","sol":["g1f3","e5d5","c3c4"],"th":null,"n":2},{"id":"m2-037","k":"m2","fen":"1R6/8/2P5/4p3/4P3/3B4/k2K4/8 w - - 2 39","sol":["d2c3","a2a1","b8a8"],"th":null,"n":2},{"id":"m2-038","k":"m2","fen":"2b5/2R5/4kp2/1p2p2B/pPP3P1/N7/1P4P1/4K3 w - b6 0 32","sol":["h5f7","e6d6","a3b5"],"th":null,"n":2},{"id":"m2-039","k":"m2","fen":"4k2r/8/p2p4/7p/7n/8/r7/4K3 b - - 1 38","sol":["h8f8","e1d1","f8f1"],"th":null,"n":2},{"id":"m2-040","k":"m2","fen":"2r5/8/p2p4/3k3p/8/K5n1/1r6/8 b - - 49 62","sol":["c8b8","a3a4","b2a2"],"th":null,"n":2},{"id":"m2-041","k":"m2","fen":"8/2k5/p7/2P2R2/1R2p2p/PQ4p1/3P1PP1/2B1KB2 w - - 0 32","sol":["b4b7","c7c6","b3b6"],"th":null,"n":2},{"id":"m2-042","k":"m2","fen":"2b4r/p2pkppp/8/1r5P/2K5/4PPP1/1P1q4/8 b - - 1 23","sol":["b5b4","c4c5","d2d6"],"th":null,"n":2},{"id":"m2-043","k":"m2","fen":"2b5/p7/n1p5/2b2P2/4n2K/8/kr6/8 b - - 1 40","sol":["c8f5","h4h5","b2h2"],"th":null,"n":2},{"id":"m2-044","k":"m2","fen":"1r2kb2/p3p2p/8/8/7n/P1Pb3p/R5PR/1NK5 b - - 3 28","sol":["f8h6","a2d2","b8b1"],"th":null,"n":2},{"id":"m2-045","k":"m2","fen":"2B5/8/1p6/k5B1/5P2/2N3P1/2K5/8 w - - 2 46","sol":["c2b3","b6b5","g5d8"],"th":null,"n":2},{"id":"m2-046","k":"m2","fen":"R3Q3/8/8/8/1kP5/pB4PK/8/8 w - - 1 57","sol":["e8e3","a3a2","a8a4"],"th":null,"n":2},{"id":"m2-047","k":"m2","fen":"1k6/8/4b3/b1p1P3/8/7p/r7/1K6 b - - 9 46","sol":["h3h2","b1c1","h2h1q"],"th":null,"n":2},{"id":"m2-048","k":"m2","fen":"r3kb1r/1p5p/5p1p/p7/2KP2P1/P4P2/6qn/8 b - - 1 26","sol":["g2c2","c4d5","c2c6"],"th":null,"n":2},{"id":"m2-049","k":"m2","fen":"8/3p2P1/8/nb5k/5B2/2P4P/8/4K3 w - - 11 43","sol":["g7g8q","d7d6","g8g5"],"th":null,"n":2},{"id":"m2-050","k":"m2","fen":"3k4/8/8/2P2R2/P3R3/8/3P2P1/2B1K3 w - - 0 41","sol":["f5f7","d8c8","e4e8"],"th":null,"n":2},{"id":"m2-051","k":"m2","fen":"8/7k/4p2P/1PQ5/2bp2p1/8/8/K7 w - - 1 49","sol":["c5g5","h7h8","g5g7"],"th":null,"n":2},{"id":"m2-052","k":"m2","fen":"2b4r/p7/p7/8/4pP2/3k4/1p6/4K3 b - - 1 55","sol":["h8h2","f4f5","b2b1q"],"th":null,"n":2},{"id":"m2-053","k":"m2","fen":"2r2knr/ppp3pp/8/5p2/5P1K/1Pq3PP/8/1Q6 b - - 1 26","sol":["c3f6","h4h5","g7g6"],"th":null,"n":2},{"id":"m2-054","k":"m2","fen":"8/4P2p/1p6/8/4P3/r1k5/3p2P1/3K4 b - - 0 42","sol":["c3d3","e7e8q","a3a1"],"th":null,"n":2},{"id":"m2-055","k":"m2","fen":"2r5/7p/2p3r1/p3p3/3q4/1K3k2/8/8 b - - 1 62","sol":["g6g2","b3a3","d4b4"],"th":null,"n":2},{"id":"m2-056","k":"m2","fen":"r3kb1r/1p3p1p/3p3p/p7/2KP2P1/P4P2/6qn/8 b - - 0 24","sol":["g2c2","c4d5","c2c6"],"th":null,"n":2},{"id":"m2-057","k":"m2","fen":"5B2/8/4k3/8/5K2/NPP5/P2P4/R5Q1 w - - 8 48","sol":["g1g7","e6d5","g7d7"],"th":null,"n":2},{"id":"m2-058","k":"m2","fen":"8/8/1Q6/p7/P5P1/1P1k1P2/7R/R5K1 w - - 3 32","sol":["a1e1","d3c3","e1e3"],"th":null,"n":2},{"id":"m2-059","k":"m2","fen":"6r1/pp6/4b3/P2kp3/8/5P2/1p5K/8 b - - 3 46","sol":["b2b1q","a5a6","b1g1"],"th":null,"n":2},{"id":"m2-060","k":"m2","fen":"1n2k2r/2r5/5n1p/8/1r6/6pp/8/3K4 b k - 1 38","sol":["b4b2","d1e1","c7c1"],"th":null,"n":2},{"id":"m2-061","k":"m2","fen":"r2k1bn1/2p1p3/p2p4/8/8/8/3q4/6K1 b - - 9 28","sol":["a8b8","g1h1","b8b1"],"th":null,"n":2},{"id":"m2-062","k":"m2","fen":"1Kb5/1p2k3/2r1pn2/p4pN1/8/N1P1P3/PB1P4/3R2R1 b - - 8 26","sol":["f6d7","b8a8","c6a6"],"th":null,"n":2},{"id":"m2-063","k":"m2","fen":"r7/4b2p/1p1P4/8/4P3/2k5/3p2P1/3K4 b - - 0 41","sol":["c3d3","d6d7","a8a1"],"th":null,"n":2},{"id":"m2-064","k":"m2","fen":"r7/ppp1kp2/4p3/3p4/1K1P4/3P3P/PBq5/Rn3R2 b - - 1 22","sol":["a7a5","b4b5","c2c6"],"th":null,"n":2},{"id":"m2-065","k":"m2","fen":"1r4nr/5ppp/5k2/4p3/2P4P/3P2PB/q4P2/R2K3b b - - 1 17","sol":["h1f3","d1e1","a2e2"],"th":null,"n":2},{"id":"m2-066","k":"m2","fen":"3k4/6R1/7P/4p2P/Pp2P3/3K4/5P2/8 w - - 7 54","sol":["h6h7","d8e8","h7h8q"],"th":null,"n":2},{"id":"m2-067","k":"m2","fen":"2n5/8/3p3Q/p4kp1/3P4/4P1P1/5P2/2K5 w - - 7 33","sol":["f2f3","c8e7","e3e4"],"th":null,"n":2},{"id":"m2-068","k":"m2","fen":"6n1/4p3/p2k4/1Q3B2/8/NP1P2P1/2P1PP1P/R1b2KNR w - - 1 23","sol":["a3c4","d6c7","b5b6"],"th":null,"n":2},{"id":"m2-069","k":"m2","fen":"8/1p5n/2p1r3/2P3k1/3P4/1P4PK/8/5n2 b - - 0 39","sol":["e6e2","d4d5","e2h2"],"th":null,"n":2},{"id":"m2-070","k":"m2","fen":"8/2p5/4p2p/R7/3P1k2/1PB4P/5K2/7R w - - 0 34","sol":["a5e5","c7c6","c3d2"],"th":null,"n":2},{"id":"m2-071","k":"m2","fen":"r6r/p1p1p2p/b2p4/N6P/P3P1k1/b5p1/1qPK4/7R b - - 0 29","sol":["a3b4","d2d1","b2b1"],"th":null,"n":2},{"id":"m2-072","k":"m2","fen":"6n1/r3b3/5kp1/3p1p2/5P2/4pKP1/7r/8 b - - 3 30","sol":["a7a3","g3g4","e3e2"],"th":null,"n":2},{"id":"m2-073","k":"m2","fen":"4kbnr/1pB1p1pp/5p2/8/2Pq1P2/1P5b/3PP2P/4R2K b k - 3 17","sol":["d4e4","h1g1","e4g2"],"th":null,"n":2},{"id":"m2-074","k":"m2","fen":"4kbnr/1pBbp1pp/5p2/8/2Pq1P2/1P6/3PP2P/2R4K b k - 5 18","sol":["d7c6","e2e4","c6e4"],"th":null,"n":2},{"id":"m2-075","k":"m2","fen":"r3k2r/p2p1p2/5P1p/1K6/P2p4/2q5/8/8 b - - 10 35","sol":["a7a5","b5b6","c3c6"],"th":null,"n":2},{"id":"m2-076","k":"m2","fen":"rnb1k3/pp2q2p/8/1K1p1p2/PP6/N7/2P1QP1P/R4B2 b q - 2 18","sol":["c8d7","b5a5","b7b6"],"th":null,"n":2},{"id":"m2-077","k":"m2","fen":"7r/1pp5/k7/3ppp1p/Pp6/4K3/6r1/8 b - - 1 39","sol":["h8g8","a4a5","g8g3"],"th":null,"n":2},{"id":"m2-078","k":"m2","fen":"8/1pp4n/4rk2/8/3P4/1PP3Pb/5p1K/8 b - - 3 36","sol":["f2f1q","d4d5","e6e2"],"th":null,"n":2},{"id":"m2-079","k":"m2","fen":"rn3bnr/5k1p/5p1p/P1pp1P2/4P1P1/6K1/P2P4/5q1b b - - 1 21","sol":["f1g2","g3h4","g2h2"],"th":null,"n":2},{"id":"m2-080","k":"m2","fen":"1Bb5/3p4/2k4p/5p2/2P2p2/5P2/3bP3/1R1Q1K2 w - - 0 28","sol":["d1d2","c8b7","d2d5"],"th":null,"n":2},{"id":"m2-081","k":"m2","fen":"4kbnr/1Q3pp1/p7/2ppP3/5Pp1/2N5/2P1P1P1/4KBN1 w - - 1 21","sol":["b7c8","e8e7","c3d5"],"th":null,"n":2},{"id":"m2-082","k":"m2","fen":"r1b4r/pppp4/3kp3/7p/1PP5/3P2K1/3NQ2P/R3Nq1R b - - 1 19","sol":["h5h4","g3g4","f1f5"],"th":null,"n":2},{"id":"m2-083","k":"m2","fen":"rn6/1pR5/p4B2/k4P2/8/NP4P1/2P3P1/R2K4 w - - 0 31","sol":["c7b7","a8a7","f6c3"],"th":null,"n":2},{"id":"m2-084","k":"m2","fen":"5r2/ppp2k2/4p3/K2p4/3P3P/n2P4/q7/8 b - - 1 29","sol":["a2b3","h4h5","b3b5"],"th":null,"n":2},{"id":"m2-085","k":"m2","fen":"2b2b1r/1ppp3p/8/2P2k1P/7n/8/r7/7K b - - 1 28","sol":["h4f3","c5c6","a2h2"],"th":null,"n":2},{"id":"m2-086","k":"m2","fen":"5r2/ppp2k2/4p3/3p4/K2P3P/n2P4/P7/q7 b - - 5 28","sol":["a1c3","h4h5","b7b5"],"th":null,"n":2},{"id":"m2-087","k":"m2","fen":"r6r/p1p1p2p/b2p4/7P/q1N1P3/b7/6kp/4K3 b - - 1 35","sol":["a4c4","h5h6","c4c1"],"th":null,"n":2},{"id":"m2-088","k":"m2","fen":"1n3rk1/2p2pp1/5q2/1b2p2p/3P2n1/b1P1P3/P2N1PPP/R1B1K2R b KQ - 1 15","sol":["f6f2","e1d1","g4e3"],"th":null,"n":2},{"id":"m2-089","k":"m2","fen":"1n2kb1r/1bpp1p1p/5np1/1P6/5P2/6KP/1P1Pq1P1/1NB3NR b k - 1 13","sol":["f6h5","g3h2","e2g2"],"th":null,"n":2},{"id":"m2-090","k":"m2","fen":"4k3/6pn/n2p4/1p1Pp3/1q2Pp1r/5K1b/8/2B5 b - - 1 31","sol":["b4e1","c1d2","h7g5"],"th":null,"n":2},{"id":"m2-091","k":"m2","fen":"r2q1rk1/pp6/2p2p2/3ppK1p/8/8/2RPP1PP/1NBQ1BNR b - - 0 18","sol":["d8d7","f5g6","d7h7"],"th":null,"n":2},{"id":"m2-092","k":"m2","fen":"r2qkb2/p2pp1p1/b1p2p2/5K1r/1P6/7R/PBPP1PP1/RN1Q2N1 w q - 2 15","sol":["d1h5","g7g6","h5g6"],"th":null,"n":2},{"id":"m2-093","k":"m2","fen":"rn3bnr/4pk2/pp5p/2qN1p1P/R4P1p/5P2/2PPP1B1/2BQK1N1 b - - 0 21","sol":["c5g1","g2f1","g1g3"],"th":null,"n":2},{"id":"m2-094","k":"m2","fen":"1rk2q2/2p1p1b1/bp3npB/p2PK2p/3P2PP/PP3P1N/4P3/1N3BR1 b - - 4 19","sol":["f6g4","e5e4","f8f5"],"th":null,"n":2},{"id":"m2-095","k":"m2","fen":"2nk4/r7/pp2p1p1/2P2p2/P2P2P1/1RP5/5r2/2K5 b - - 3 29","sol":["a7h7","c5c6","h7h1"],"th":null,"n":2},{"id":"m2-096","k":"m2","fen":"r3kb1r/1p3p1p/7p/p2K4/3P2P1/P4P2/6qn/8 b - - 0 25","sol":["g2e2","g4g5","a8d8"],"th":null,"n":2},{"id":"m2-097","k":"m2","fen":"rn3bnr/1p2pk2/p6p/2qp1p1P/R4P1p/2N2P2/2PPP1B1/2BQK1N1 b - - 1 20","sol":["c5g1","g2f1","g1g3"],"th":null,"n":2},{"id":"m2-098","k":"m2","fen":"r1b2Bnr/pppp2p1/n3pp2/4P2k/2B5/1P1P1p2/P1P1QP1P/2R1K1R1 w - - 2 14","sol":["e2f3","h5h4","f3g4"],"th":null,"n":2},{"id":"m2-099","k":"m2","fen":"1r2k3/3p2p1/3Kpp2/p7/8/2N4N/PBP1bPP1/3R4 b - - 4 28","sol":["b8c8","c3e2","c8c6"],"th":null,"n":2},{"id":"m2-100","k":"m2","fen":"2bqk2r/r1p5/2n1p3/pP4pp/3nP3/3P2KN/1P3PPP/R1B2BR1 b k - 0 20","sol":["h5h4","g3g4","c6e5"],"th":null,"n":2},{"id":"m3-001","k":"m3","fen":"4Q3/3P4/8/k5K1/8/5P2/8/8 w - - 1 50","sol":["d7d8q","a5a6","d8a8","a6b6","e8c6"],"th":null,"n":3},{"id":"m3-002","k":"m3","fen":"6k1/8/5R2/7N/2K5/8/5P1P/2R5 w - - 3 51","sol":["c1g1","g8h7","g1g7","h7h8","f6f8"],"th":null,"n":3},{"id":"m3-003","k":"m3","fen":"8/8/p7/2p5/k1p1NP2/8/P1K5/1RB5 w - - 4 45","sol":["e4c5","a4a5","c1d2","c4c3","d2c3"],"th":null,"n":3},{"id":"m3-004","k":"m3","fen":"8/r1p2k2/n7/p2p2K1/8/6P1/2b5/4q3 b - - 2 39","sol":["e1g3","g5h5","c2d1","h5h6","g3g6"],"th":null,"n":3},{"id":"m3-005","k":"m3","fen":"5K2/8/p1k3rp/P7/2P5/8/5p2/8 b - - 9 54","sol":["f2f1q","f8e8","g6e6","e8d8","f1f8"],"th":null,"n":3},{"id":"m3-006","k":"m3","fen":"4R3/k1P5/P7/3N4/8/P4P2/7p/5K2 w - - 2 42","sol":["e8a8","a7a8","c7c8q","a8a7","c8b7"],"th":null,"n":3},{"id":"m3-007","k":"m3","fen":"k7/3P4/5p2/1B6/2N4P/5p2/3P1K2/8 w - - 0 33","sol":["d7d8q","a8a7","d8c7","a7a8","b5c6"],"th":null,"n":3},{"id":"m3-008","k":"m3","fen":"3Q4/8/7k/8/2K2P1B/N2n3P/8/7R w - - 0 40","sol":["d8f6","h6h7","f6f7","h7h6","h4g5"],"th":null,"n":3},{"id":"m3-009","k":"m3","fen":"8/6k1/8/4R3/1P2PB1Q/7P/p7/4K3 w - - 1 47","sol":["e5e7","g7g8","h4h7","g8f8","h7g7"],"th":null,"n":3},{"id":"m3-010","k":"m3","fen":"7r/p4p2/P4k1b/7p/8/6K1/8/5r2 b - - 11 35","sol":["h8g8","g3h2","h6f4","h2h3","f1h1"],"th":null,"n":3},{"id":"m3-011","k":"m3","fen":"7r/3N4/6k1/7p/1q5P/r2P4/8/2K5 b - - 2 30","sol":["a3a1","c1c2","h8c8","d7c5","c8c5"],"th":null,"n":3},{"id":"m3-012","k":"m3","fen":"5k2/8/4p1p1/K3P1B1/P1N4R/8/8/8 w - - 5 41","sol":["h4h8","f8f7","c4d6","f7g7","g5f6"],"th":null,"n":3},{"id":"m3-013","k":"m3","fen":"8/1R6/6p1/p7/P2PN2R/5k2/8/3K4 w - - 0 39","sol":["b7b3","f3g2","b3g3","g2f1","h4h1"],"th":null,"n":3},{"id":"m3-014","k":"m3","fen":"8/1R6/6p1/p5N1/P2P3R/8/6k1/3K4 w - - 2 40","sol":["h4g4","g2f2","b7f7","f2e3","f7f3"],"th":null,"n":3},{"id":"m3-015","k":"m3","fen":"8/8/4B3/1R6/p1P2P2/p2K2k1/P7/6N1 w - - 0 41","sol":["b5g5","g3h2","g1f3","h2h1","g5g1"],"th":null,"n":3},{"id":"m3-016","k":"m3","fen":"B2b4/5B2/8/pk6/5P2/P3B3/4K3/R7 w - - 2 34","sol":["a1b1","b5a4","a8c6","a4a3","e3c1"],"th":null,"n":3},{"id":"m3-017","k":"m3","fen":"8/2R5/6p1/p2B4/P4pk1/3P1N2/7R/3K4 w - - 0 33","sol":["h2g2","g4h3","f3g1","h3h4","c7h7"],"th":null,"n":3},{"id":"m3-018","k":"m3","fen":"3k4/3p2bp/1P2p3/7p/1PK1n3/8/5r2/3r4 b - - 4 40","sol":["e4d6","c4b3","f2b2","b3a3","d1a1"],"th":null,"n":3},{"id":"m3-019","k":"m3","fen":"r3k3/pb3ppr/8/7p/2p2K2/8/3N4/4q3 b q - 3 30","sol":["e1f2","d2f3","f2f3","f4g5","f3f6"],"th":null,"n":3},{"id":"m3-020","k":"m3","fen":"5B2/2P5/2k5/p4P2/p7/1p3P1R/1P2K1P1/5N2 w - - 0 34","sol":["c7c8q","c6b6","h3h6","b6b5","c8c6"],"th":null,"n":3},{"id":"m3-021","k":"m3","fen":"5b2/1ppn2pr/7p/1Q5n/8/2k3P1/1R2PP2/5K2 w - - 0 21","sol":["b2b3","c3c2","b5c4","c2d2","b3d3"],"th":null,"n":3},{"id":"m3-022","k":"m3","fen":"8/1ppn2pr/3b3p/1Q5n/6P1/2k5/1R2PP2/5K2 w - - 1 22","sol":["b2b3","c3c2","b5c4","c2d2","b3d3"],"th":null,"n":3},{"id":"m3-023","k":"m3","fen":"1n5N/1p2k2p/2p5/8/5Q2/p7/R1PP3P/1N3KR1 w - - 1 26","sol":["f4e5","e7d7","g1g7","d7d8","e5b8"],"th":null,"n":3},{"id":"m3-024","k":"m3","fen":"1n6/ppQ5/2p5/3p4/P2Pkp2/8/P4K2/R3B1N1 w - - 1 25","sol":["c7e5","e4d3","a1d1","d3c2","e5e2"],"th":null,"n":3},{"id":"m3-025","k":"m3","fen":"1rN4r/7p/3p1k1p/1P5P/p7/P7/2PN2R1/2K1R3 w - - 0 26","sol":["g2f2","f6g5","e1g1","g5h5","f2h2"],"th":null,"n":3},{"id":"m3-026","k":"m3","fen":"3r1kn1/2p2pp1/p7/P5P1/p7/2K2PPB/1P2P3/4r3 b - - 3 27","sol":["e1c1","c3b4","d8d4","b4a3","c1a1"],"th":null,"n":3},{"id":"m3-027","k":"m3","fen":"5b2/1ppn2pr/7p/1Q5n/3k4/2p3P1/1R1BPP2/5K2 w - - 4 20","sol":["d2e3","d4e4","f2f3","e4e3","b5d3"],"th":null,"n":3},{"id":"m3-028","k":"m3","fen":"4kbr1/p1p1pppp/8/7R/p1P1p3/P7/3P1PP1/1RBQ2K1 w - - 0 19","sol":["d1a4","c7c6","a4c6","e8d8","h5d5"],"th":null,"n":3},{"id":"m3-029","k":"m3","fen":"B2k3r/p1pbbppp/P3p3/8/2n5/8/n3P2P/3K2NR b - - 0 19","sol":["d7a4","d1e1","e7h4","e1f1","c4e3"],"th":null,"n":3},{"id":"m3-030","k":"m3","fen":"4k1N1/3r1pp1/1p2p3/R2n4/3P3P/4P3/1PPKBPP1/7R w - - 1 23","sol":["a5a8","d7d8","e2b5","e8f8","a8d8"],"th":"Mate del pasillo","n":3},{"id":"m3-031","k":"m3","fen":"2Q5/4kp1r/1pppp1pp/p7/P5PP/B1P5/3NB3/1N2K2R w - - 1 24","sol":["a3d6","e7f6","d2e4","f6g7","c8f8"],"th":null,"n":3},{"id":"m3-032","k":"m3","fen":"Q4b2/2qp1k2/1p2ppp1/3pnn2/1PP3p1/1R1PP3/7K/8 b - - 0 23","sol":["e5f3","h2g2","c7h2","g2f1","f5g3"],"th":null,"n":3},{"id":"m3-033","k":"m3","fen":"1n2k2r/1pp3pp/3b1p1n/Rp5K/4p3/7P/1PPP4/1NB5 b k - 5 17","sol":["g7g6","h5h4","h6f5","h4g4","h7h5"],"th":null,"n":3},{"id":"m3-034","k":"m3","fen":"1r3b1r/2p2ppp/p2k4/4p3/QN2P1P1/P1P2P2/1R1P4/2B1K1NR w K e6 0 17","sol":["a4c6","d6e7","b4d5","e7d8","b2b8"],"th":null,"n":3},{"id":"m3-035","k":"m3","fen":"rnbQ4/2pp4/pp1k1p2/4p1p1/4P3/P1P5/P2PKPPP/R1B2B1R w - - 0 12","sol":["d8f6","d6c5","f6e5","d7d5","e5d5"],"th":null,"n":3},{"id":"m3-036","k":"m3","fen":"r1b3n1/pp2Q2p/n5kb/2pp4/7P/1P1P2p1/PB4K1/RN3BNR w - - 1 17","sol":["h4h5","g6f5","e7e5","f5g4","f1e2"],"th":null,"n":3},{"id":"m3-037","k":"m3","fen":"2q1kbnr/p1p1ppp1/B1n4p/3p1Q2/4P3/6PN/PPPP1P1P/RNB1K2R w KQk - 2 9","sol":["f5c8","c6d8","a6b5","c7c6","b5c6"],"th":null,"n":3},{"id":"m3-038","k":"m3","fen":"rnbQ1bnr/p2p3p/3kp3/1pp2p2/2P5/2N1P3/PP1P1PPP/R1B1KBNR w KQ b6 0 8","sol":["c3b5","d6e5","f2f4","e5e4","b5c3"],"th":null,"n":3},{"id":"mat-001","k":"mat","fen":"8/5kp1/8/8/1N2pPnP/3p4/4p3/2K5 b - - 8 53","sol":["e2e1q","c1b2"],"th":"Horquilla con jaque","alt":["e2e1q"],"gain":11},{"id":"mat-002","k":"mat","fen":"8/2R5/1p4P1/2pkpP2/p7/P2K1n1p/2Q5/8 b - - 4 50","sol":["f3e1","d3d2"],"th":"Jaque que gana material","alt":["f3e1"],"gain":9},{"id":"mat-003","k":"mat","fen":"4k3/8/1n3B2/6p1/2N1p2p/N7/3pbPP1/1K6 b - - 5 53","sol":["d2d1q","b1b2"],"th":"Jaque que gana material","alt":["d2d1q","b6c4"],"gain":8},{"id":"mat-004","k":"mat","fen":"4k3/p7/7R/6p1/1p1P4/1P4B1/4b3/1K6 w - - 3 52","sol":["h6e6","e8d7"],"th":"Jaque que gana material","alt":["h6e6"],"gain":3},{"id":"mat-005","k":"mat","fen":"r4r2/k7/8/P3B2R/8/5P2/BP4P1/R2K4 w - - 3 55","sol":["h5h7","f8f7"],"th":"Jaque que gana material","alt":["h5h7"],"gain":5},{"id":"mat-006","k":"mat","fen":"3r1k2/7R/p2n4/3N4/8/p1P3R1/Pb6/7K w - - 0 49","sol":["h7h8","f8f7"],"th":"Jaque que gana material","alt":["h7h8"],"gain":5},{"id":"mat-007","k":"mat","fen":"3k1b1Q/4n3/2p5/r1P5/3P4/1q6/4K1p1/2R5 b - - 2 56","sol":["a5a2","c1c2"],"th":"Jaque que gana material","alt":["a5a2"],"gain":5},{"id":"mat-008","k":"mat","fen":"7k/8/3b3P/p4PN1/P1p2P2/4K3/8/8 w - - 1 55","sol":["g5f7","h8h7"],"th":"Jaque que gana material","alt":["g5f7"],"gain":3},{"id":"mat-009","k":"mat","fen":"1n3kn1/8/6Pb/6p1/8/p1q3P1/P6K/3R4 b - - 1 50","sol":["c3c2","h2h1"],"th":"Horquilla con jaque","alt":["c3c2"],"gain":5},{"id":"mat-010","k":"mat","fen":"8/5p2/3k3p/1Pn4P/2r5/6N1/8/3qNK2 b - - 2 53","sol":["c4f4","f1g2"],"th":"Jaque que gana material","alt":["c4f4"],"gain":3},{"id":"mat-011","k":"mat","fen":"8/p4p2/Pn5k/1P3p2/4p2P/8/2r2P2/4K2R b - - 2 38","sol":["c2c1","e1e2"],"th":"Jaque que gana material","alt":["c2c1"],"gain":5},{"id":"mat-012","k":"mat","fen":"8/8/P2k2p1/7p/2p4P/PP3r2/1R6/R1K5 b - - 9 44","sol":["f3f1","c1d2"],"th":"Jaque que gana material","alt":["f3f1"],"gain":4},{"id":"mat-013","k":"mat","fen":"1n3k1q/4n3/6Pb/6p1/8/p5P1/P7/3R3K w - - 4 52","sol":["d1d8","f8g7"],"th":"Jaque que gana material","alt":["d1d8"],"gain":4},{"id":"mat-014","k":"mat","fen":"3r4/5p2/2P3k1/R2p3r/3B4/P7/PK6/5q2 b - - 5 59","sol":["h5h2","d4f2"],"th":"Jaque que gana material","alt":["h5h2","f1e2"],"gain":3},{"id":"mat-015","k":"mat","fen":"8/p7/B1p3kp/4P3/PbP2P1P/4r3/K7/5Q2 w - - 3 52","sol":["f1g1","g6h7"],"th":"Jaque que gana material","alt":["f1g1"],"gain":5},{"id":"mat-016","k":"mat","fen":"8/r7/2qPp3/pp2P2k/b2K4/3P4/5N2/8 b - - 5 56","sol":["c6b6","d4c3"],"th":"Jaque que gana material","alt":["c6b6"],"gain":3},{"id":"mat-017","k":"mat","fen":"r4k2/p6R/3n4/4R3/pN6/2P3p1/Pb6/7K w - - 0 46","sol":["h7h8","f8f7"],"th":"Jaque que gana material","alt":["h7h8"],"gain":4},{"id":"mat-018","k":"mat","fen":"2k5/2pr4/p3P1pr/7p/P6P/2p5/8/2N3K1 b - - 0 50","sol":["d7d1","g1f2"],"th":"Jaque que gana material","alt":["d7d1"],"gain":3},{"id":"mat-019","k":"mat","fen":"1n5r/4b3/3pP3/5ppk/1p1q2pP/6P1/2R5/5K2 b - - 21 50","sol":["d4d1","f1f2"],"th":"Jaque que gana material","alt":["d4d1"],"gain":5},{"id":"mat-020","k":"mat","fen":"r5rk/8/p7/P1p3b1/7p/2RPp2b/8/2B1R1K1 b - - 1 53","sol":["g5f6","g1h2"],"th":"Jaque que gana material","alt":["g5f6"],"gain":4},{"id":"mat-021","k":"mat","fen":"3k4/8/P5pP/2p1P2p/1pp4n/3P4/RP1Q4/4KBR1 b - - 1 44","sol":["h4f3","e1e2"],"th":"Horquilla con jaque","alt":["h4f3"],"gain":6},{"id":"mat-022","k":"mat","fen":"4r3/5r2/1p4n1/1k6/pP6/2Q1BPN1/P7/1R4K1 w - - 1 58","sol":["c3d3","b5c6"],"th":"Jaque que gana material","alt":["c3d3"],"gain":3},{"id":"mat-023","k":"mat","fen":"8/8/p7/P3K1k1/5r2/2P1N2B/8/8 b - - 1 53","sol":["f4f3","e3d5"],"th":"Horquilla","alt":["f4f3"],"gain":3},{"id":"mat-024","k":"mat","fen":"8/8/p7/P2K1Nk1/8/2P4B/4r3/8 b - - 7 56","sol":["e2h2","h3f1"],"th":"Táctica","alt":["e2h2"],"gain":3},{"id":"mat-025","k":"mat","fen":"3b4/1b4q1/p3p1P1/2pk1P1Q/B7/NP2P3/1RPP3R/2B3K1 w - - 1 34","sol":["f5f6","d5d6"],"th":"Jaque que gana material","alt":["f5f6"],"gain":9},{"id":"mat-026","k":"mat","fen":"3k2n1/8/P7/5p2/P2P1P2/1p4pN/8/1N1RK2B w - - 5 46","sol":["a6a7","g8e7"],"th":"Táctica","alt":["a6a7","h1g2"],"gain":8},{"id":"mat-027","k":"mat","fen":"4k1n1/8/P7/5pN1/P2P1P2/1p4p1/8/1N1RK2B w - - 11 49","sol":["a6a7","g8e7"],"th":"Táctica","alt":["a6a7"],"gain":8},{"id":"mat-028","k":"mat","fen":"2k2b1r/r3n1p1/2pp4/P1P1p2n/p2PP2q/2B3pb/4Q3/1R1NK2R b - - 1 38","sol":["g3g2","e1d2"],"th":"Horquilla con jaque","alt":["g3g2"],"gain":12},{"id":"mat-029","k":"mat","fen":"rn1b4/3k4/6Pn/8/1pP4p/1N2P2P/3K2N1/7R b - - 3 47","sol":["a8a2","d2c1"],"th":"Jaque que gana material","alt":["a8a2"],"gain":3},{"id":"mat-030","k":"mat","fen":"7r/2r1p1k1/5n2/pPPn1P2/3P4/P5P1/R3K3/1N4N1 b - - 4 41","sol":["h8h2","e2e1"],"th":"Jaque que gana material","alt":["h8h2"],"gain":5},{"id":"mat-031","k":"mat","fen":"1r1k3r/3n4/b1p5/qpP2NP1/6RP/p2B4/5K1b/2R5 b - - 4 53","sol":["a5d2","d3e2"],"th":"Horquilla con jaque","alt":["a5d2"],"gain":5},{"id":"mat-032","k":"mat","fen":"6k1/1r2n3/4P3/p1pp2P1/P2P4/1P1R1B2/1qN5/3K1R2 b - - 5 53","sol":["b2b1","d1d2"],"th":"Jaque que gana material","alt":["b2b1"],"gain":4},{"id":"mat-033","k":"mat","fen":"1n5k/8/5b1p/rBP3p1/P5Pr/p6P/4R3/3K2N1 w - - 1 58","sol":["e2e8","h8h7"],"th":"Jaque que gana material","alt":["e2e8"],"gain":3},{"id":"mat-034","k":"mat","fen":"4b3/r1p2k2/p7/8/2Pn3P/P3p1p1/R1P5/1NK5 b - - 3 53","sol":["g3g2","b1c3"],"th":"Táctica","alt":["g3g2","e3e2"],"gain":8},{"id":"mat-035","k":"mat","fen":"8/r1p5/p3k3/2P4b/P2n3P/4p1p1/2P5/RNK5 b - - 2 56","sol":["g3g2","b1c3"],"th":"Táctica","alt":["g3g2"],"gain":8},{"id":"mat-036","k":"mat","fen":"1b4k1/8/7p/1p1p3B/1P1P4/8/5PK1/R7 w - - 0 58","sol":["a1a8","g8g7"],"th":"Táctica","alt":["a1a8"],"gain":3},{"id":"mat-037","k":"mat","fen":"rn3b2/1bk2N2/1q4r1/1p2P1B1/P1p4P/2P5/6B1/RN2K2R w Q - 1 40","sol":["g5d8","c7d7"],"th":"Jaque que gana material","alt":["g5d8"],"gain":6},{"id":"mat-038","k":"mat","fen":"r6r/p2k4/p2bp2p/P2n3P/3p1Pp1/6P1/2Q5/3K1BNR b - - 6 38","sol":["d5e3","d1c1"],"th":"Horquilla con jaque","alt":["d5e3"],"gain":6},{"id":"mat-039","k":"mat","fen":"2b5/2p2p1Q/pb2pq2/4k1p1/B6P/NP2P1P1/R1PP3R/2B3K1 w - - 1 28","sol":["c1b2","e5d6"],"th":"Jaque que gana material","alt":["c1b2"],"gain":8},{"id":"mat-040","k":"mat","fen":"1nbk4/3p4/1p1P3r/1B4Np/P7/q4P2/2P1P2P/3QK1R1 w - - 2 43","sol":["g5f7","d8e8"],"th":"Jaque que gana material","alt":["g5f7"],"gain":5},{"id":"mat-041","k":"mat","fen":"1nbk4/3p4/1p1q3r/6N1/P6p/2PB1PR1/4P2P/3QK3 w - - 0 46","sol":["g5f7","d8c7"],"th":"Horquilla con jaque","alt":["g5f7"],"gain":4},{"id":"mat-042","k":"mat","fen":"Qn3k2/p3n3/2r5/P2p3p/2p1q3/2P3P1/1B1K1P1P/R4R2 b - - 1 35","sol":["e4d3","d2c1"],"th":"Jaque que gana material","alt":["e4d3"],"gain":5},{"id":"mat-043","k":"mat","fen":"r4b2/2p5/n2kpr2/1p6/bP1PP2p/2P4N/N3K1R1/7R w - - 2 34","sol":["e4e5","d6e7"],"th":"Jaque que gana material","alt":["e4e5"],"gain":4},{"id":"mat-044","k":"mat","fen":"3q1br1/r1p1k3/P1Q3pn/7p/7P/1P2p3/P2NN3/R1B1KR2 w Q - 0 22","sol":["c1a3","d8d6"],"th":"Jaque que gana material","alt":["c1a3"],"gain":6},{"id":"mat-045","k":"mat","fen":"r7/p2nb1p1/b5kr/1p1p3q/1P6/PQ3P2/2P1P3/R2K4 b - - 5 32","sol":["h5h1","d1d2"],"th":"Jaque que gana material","alt":["h5h1"],"gain":4},{"id":"mat-046","k":"mat","fen":"2b3kr/3n2n1/1p1B2q1/p2P2p1/P1N2pN1/1P3P2/B7/R2K4 b - - 2 53","sol":["h8h1","d1d2"],"th":"Jaque que gana material","alt":["h8h1"],"gain":5},{"id":"mat-047","k":"mat","fen":"r3r3/1k6/p1p1P2p/1pP4P/3N2p1/q5n1/3R1Q2/1b2KB1R w - - 0 55","sol":["f2f7","e8e7"],"th":"Jaque que gana material","alt":["f2f7"],"gain":5},{"id":"mat-048","k":"mat","fen":"3k2r1/6rp/p7/P5PR/2p2pP1/2RbqP2/1P5K/3B4 b - - 4 56","sol":["e3d2","d1e2"],"th":"Horquilla con jaque","alt":["e3d2"],"gain":3},{"id":"mat-049","k":"mat","fen":"2r3q1/2p2k1p/1p3b1P/pB2p1pP/P7/4RP1N/1P1P3R/2BK4 w - - 0 37","sol":["b5c4","f7f8"],"th":"Jaque que gana material","alt":["b5c4"],"gain":6},{"id":"mat-050","k":"mat","fen":"1r6/8/p1k1P1pr/2p4p/P6P/2p5/2N3K1/8 b - - 5 56","sol":["b8b2","g2f3"],"th":"Táctica","alt":["b8b2"],"gain":3},{"id":"mat-051","k":"mat","fen":"5k2/1rq1n3/2p1P3/p2p2P1/P2P3P/pP1R1B2/8/1N2K2R b - - 3 47","sol":["a3a2","b1d2"],"th":"Horquilla","alt":["a3a2"],"gain":8},{"id":"mat-052","k":"mat","fen":"1k6/8/r1n1p1p1/1p2P3/1n2BP2/p3B1bN/4b3/7K b - - 13 56","sol":["a3a2","h1g2"],"th":"Táctica","alt":["a3a2"],"gain":5},{"id":"mat-053","k":"mat","fen":"1n2kb2/3rpp2/pp6/2pnP1p1/P2P2p1/1P1K4/2Q3P1/RNB2R2 b - - 1 23","sol":["d5b4","d3c3"],"th":"Jaque que gana material","alt":["d5b4"],"gain":6},{"id":"mat-054","k":"mat","fen":"r1b1k1r1/pq3p1p/1p4p1/1NPPp3/8/2P1BPPn/P6P/R1QK4 w q - 2 25","sol":["b5d6","e8d8"],"th":"Horquilla con jaque","alt":["b5d6"],"gain":6},{"id":"mat-055","k":"mat","fen":"1nb1k2r/3p1p1p/p5p1/3Qp3/5B2/2qP4/5PPP/3KR1NR w k - 0 22","sol":["f4e5","c3c6"],"th":"Horquilla","alt":["f4e5"],"gain":6},{"id":"mat-056","k":"mat","fen":"r3kq2/4n3/n1b1p3/2p2pp1/2N3pr/2PPPP2/2NK4/Q6B b - - 0 44","sol":["h4h2","h1g2"],"th":"Jaque que gana material","alt":["h4h2"],"gain":3},{"id":"mat-057","k":"mat","fen":"1k6/8/2n1p1p1/rp2P3/1n3P1b/p3B2N/4B2K/8 b - - 2 59","sol":["a3a2","e3b6"],"th":"Táctica","alt":["a3a2"],"gain":3},{"id":"mat-058","k":"mat","fen":"2k5/4b3/2P2nr1/4p3/P6P/1q6/3P1P2/RN2KR2 b - - 0 41","sol":["b3b2","a1a3"],"th":"Táctica","alt":["b3b2"],"gain":2},{"id":"mat-059","k":"mat","fen":"rn4nr/p1pkb3/3p2P1/4p3/2P1N1bp/1P1BPp2/1B1P3P/RN1QK2R b - - 2 20","sol":["f3f2","e4f2"],"th":"Jaque que gana material","alt":["f3f2"],"gain":8},{"id":"mat-060","k":"mat","fen":"1q1r4/2b2p2/6kP/p1n3P1/P6R/P1p5/4K3/R1Br1B2 b - - 2 47","sol":["c5b3","h4h3"],"th":"Horquilla","alt":["c5b3"],"gain":4},{"id":"mat-061","k":"mat","fen":"3n3r/p7/2k2p2/prp1pn2/7p/4P2P/2p4P/2B2K2 b - - 5 41","sol":["b5b1","e3e4"],"th":"Táctica","alt":["b5b1"],"gain":3},{"id":"mat-062","k":"mat","fen":"1n1n4/2k4r/p4p2/1rp5/p3p2p/4P2P/2p4P/2B3K1 b - - 7 50","sol":["b5b1","g1h1"],"th":"Táctica","alt":["b5b1"],"gain":3},{"id":"mat-063","k":"mat","fen":"1r3b1r/3k2p1/2pp2q1/Q3p2p/P3Pp1P/B1P2P1n/3P3P/RN1K3R b - - 2 29","sol":["h3f2","d1c1"],"th":"Jaque que gana material","alt":["h3f2"],"gain":5},{"id":"mat-064","k":"mat","fen":"rn1qkb1r/2p1pp2/p7/p2n2pp/1P1P4/N4P1B/R1P1KPQP/1R2B3 b kq - 1 20","sol":["d5f4","e2f1"],"th":"Horquilla con jaque","alt":["d5f4"],"gain":6},{"id":"mat-065","k":"mat","fen":"4k1n1/4br2/r1p2qp1/p7/P4p1P/2pKp1p1/8/5RNR b - - 0 35","sol":["g3g2","g1f3"],"th":"Horquilla","alt":["g3g2"],"gain":4},{"id":"mat-066","k":"mat","fen":"2q1k2r/3pp2p/8/PB5p/4n2P/5pr1/P7/bN1KR3 b k - 3 26","sol":["a1b2","b5d7"],"th":"Táctica","alt":["a1b2"],"gain":2},{"id":"mat-067","k":"mat","fen":"r3kbr1/7p/1Pbpp1p1/ppp2p2/3nP1PP/1P1PB2B/NRPQ4/3R2K1 b - - 5 35","sol":["d4f3","g1h1"],"th":"Horquilla con jaque","alt":["d4f3"],"gain":6},{"id":"mat-068","k":"mat","fen":"rn2kbr1/p6p/2n1pp2/pN1p2p1/2PP2PP/PN6/3R1P2/2BQKB1R w q - 1 22","sol":["b5c7","e8d8"],"th":"Horquilla con jaque","alt":["b5c7","c4d5"],"gain":5},{"id":"mat-069","k":"mat","fen":"rnb2k1b/4q3/2p4p/pp6/2p3p1/N4PBP/PP2P3/3R1K1R w - - 1 28","sol":["g3d6","e7d6"],"th":"Táctica","alt":["g3d6"],"gain":6},{"id":"mat-070","k":"mat","fen":"rn1r4/p2pn1q1/5p2/4kPp1/p3P1Pp/2p2B1P/1p2KB2/1R4N1 b - - 3 50","sol":["c3c2","b1b2"],"th":"Horquilla","alt":["c3c2"],"gain":7},{"id":"mat-071","k":"mat","fen":"rn1q1b1r/2k1p2p/2p4n/p2p2NQ/4Pp2/8/1PPPBPPP/RNB2K1R w - - 1 13","sol":["g5e6","c7c8"],"th":"Horquilla con jaque","alt":["g5e6"],"gain":6},{"id":"mat-072","k":"mat","fen":"rn5b/p7/b4k2/4ppNK/1pP5/1P2P3/PB1N2PP/R2QR3 w - - 0 28","sol":["d1f3","f6g7"],"th":"Táctica","alt":["d1f3"],"gain":5},{"id":"mat-073","k":"mat","fen":"rnbqkbr1/p4n1N/1pppppp1/8/2P2P1p/N1Q1P2P/PP1PK1P1/R1B2BR1 w - - 2 16","sol":["h7f6","e8e7"],"th":"Jaque que gana material","alt":["h7f6"],"gain":6},{"id":"mat-074","k":"mat","fen":"2k2b2/4n1pr/rppp3p/P3p3/P1PPPn1q/2B3pb/1NQ1B3/2R1K2R b - - 1 32","sol":["g3g2","e1d2"],"th":"Horquilla con jaque","alt":["g3g2"],"gain":4},{"id":"mat-075","k":"mat","fen":"r1bq1b1r/1p1pkpp1/n1p1p3/3n4/Q2P2p1/2PK1P2/PP2P2P/RNB2BNR b - - 2 14","sol":["a6c5","d4c5"],"th":"Jaque que gana material","alt":["a6c5"],"gain":6},{"id":"mat-076","k":"mat","fen":"rn2kb1r/p6p/2npppp1/pN6/2Pp3P/PN2P3/R4PP1/2BQKB1R w kq - 0 19","sol":["b5c7","e8d8"],"th":"Horquilla con jaque","alt":["b5c7"],"gain":4},{"id":"mat-077","k":"mat","fen":"2b2bnr/1p1kp1pp/2n5/3p2N1/3P1PpP/N1Q1B3/P7/R4K1R w - - 3 25","sol":["g5f7","g8f6"],"th":"Táctica","alt":["g5f7"],"gain":5},{"id":"mat-078","k":"mat","fen":"1n1k1r2/pr1b1p1p/1p1Pp2b/2p1Bn2/P1P3K1/1P3P1Q/4P1PP/R4B1R b - - 0 38","sol":["f8g8","e5g7"],"th":"Jaque que gana material","alt":["f8g8"],"gain":3},{"id":"mat-079","k":"mat","fen":"4k1nr/5p2/P2nrPp1/1Pp1p1P1/1p1pP2p/8/QP1P3P/R1B1K1RB w - - 1 34","sol":["a6a7","d6b5"],"th":"Táctica","alt":["a6a7"],"gain":7},{"id":"mat-080","k":"mat","fen":"rn1q1bn1/p1pp1p2/b4kpr/1p5p/1Pp2PP1/P6P/3RP3/1NB1KBNR w K - 0 16","sol":["g4g5","f6e7"],"th":"Jaque que gana material","alt":["g4g5"],"gain":4},{"id":"mat-081","k":"mat","fen":"2b2qr1/3pbp2/rp2knpp/p1n5/1p3PPP/4P1NB/P6R/NRBQK3 w - - 8 25","sol":["g4g5","f6g4"],"th":"Jaque que gana material","alt":["g4g5"],"gain":3},{"id":"mat-082","k":"mat","fen":"rnn1kbr1/p1qp4/b7/Pp2pPp1/3P3p/1P3P1N/2P1Q1PP/R1B1KB1R b Kq d3 0 14","sol":["c7c3","e2d2"],"th":"Horquilla con jaque","alt":["c7c3"],"gain":4},{"id":"mat-083","k":"mat","fen":"rn2kbnr/1p1b2pp/p1p5/3NPpq1/2P5/1P1BPP2/P2B2PP/RN1QK2R w KQkq - 0 16","sol":["d5c7","e8d8"],"th":"Jaque que gana material","alt":["d5c7"],"gain":4},{"id":"mat-084","k":"mat","fen":"1rb2b1r/1p2kp2/p1p2p1p/1qP1N3/1P2P1nP/3N4/P3K1P1/R1Q2BR1 w - - 1 25","sol":["a2a4","f6e5"],"th":"Táctica","alt":["a2a4"],"gain":5},{"id":"mat-085","k":"mat","fen":"r1qb2n1/1ppbk3/p2p3r/5ppp/1nPQ4/2N1P1PP/PP3P2/R1BK1BNR w - - 0 19","sol":["d4g7","e7e6"],"th":"Horquilla con jaque","alt":["d4g7","a2a3"],"gain":3},{"id":"mat-086","k":"mat","fen":"rn1qk2r/p2ppp1p/b6b/6p1/1p1K2Q1/1P2P2N/P1P2PPP/RNB2B1R b kq - 0 11","sol":["h6g7","d4e4"],"th":"Jaque que gana material","alt":["h6g7"],"gain":2},{"id":"mat-087","k":"mat","fen":"rb1qkr2/8/2p2npp/pp6/5P2/Pp1P3P/4B2P/RNBK2NR b q f3 0 29","sol":["d8d4","b1c3"],"th":"Táctica","alt":["d8d4"],"gain":3},{"id":"mat-088","k":"mat","fen":"rnbq4/ppbpkprp/1p5n/4pP1P/1PP1P1p1/P2B4/RB1P1RP1/3KQ1N1 w - - 13 25","sol":["f5f6","e7f8"],"th":"Jaque que gana material","alt":["f5f6"],"gain":4},{"id":"mat-089","k":"mat","fen":"rnbbk1nr/qp1p3p/5p2/3Pp1p1/p1N3PP/2P2N1R/PP2PP2/1R1QKB2 w k g6 0 16","sol":["c4d6","e8f8"],"th":"Jaque que gana material","alt":["c4d6"],"gain":3},{"id":"mat-090","k":"mat","fen":"rn3b2/p3p1pr/bq1pknQ1/1pp2p1p/5P2/P1PPP2N/1P1NK1PP/R1B2B1R w - - 0 16","sol":["h3g5","e6d7"],"th":"Jaque que gana material","alt":["h3g5"],"gain":2},{"id":"mat-091","k":"mat","fen":"2rb1knr/3n1bqp/2p5/P1p1P1pP/P3P3/R1BNP3/2B3P1/3KQ2R w - - 10 37","sol":["e5e6","f7h5"],"th":"Horquilla","alt":["e5e6"],"gain":2},{"id":"mat-092","k":"mat","fen":"rqb1k2r/p2pb3/p3pn1p/P1P4P/3ppPp1/6P1/1PRBQ3/4KBNR b - - 1 26","sol":["d4d3","e2d1"],"th":"Horquilla","alt":["d4d3"],"gain":4},{"id":"mat-093","k":"mat","fen":"1nbq1k1r/r1ppb2p/1p2ppp1/pQP4n/P3P3/2N2P2/1P1PK1PP/R1B2BNR b - - 0 11","sol":["c8a6","e2e1"],"th":"Táctica","alt":["c8a6"],"gain":6},{"id":"mat-094","k":"mat","fen":"r1bqkb1r/1ppp1pp1/n6p/p3pn2/N1P5/2QP1P1P/PP2P1P1/R1B1KBNR b KQkq - 1 8","sol":["f8b4","c1d2"],"th":"Táctica","alt":["f8b4"],"gain":6},{"id":"mat-095","k":"mat","fen":"2b1k2r/rn1qbppp/p3p2n/1pPp4/8/P1P1Q1PP/RP2PP2/1NBK1BNR w k - 8 13","sol":["c5c6","d7c6"],"th":"Horquilla","alt":["c5c6"],"gain":4},{"id":"mat-096","k":"mat","fen":"1nb2bnr/r2kpp1p/1p6/pPp1q1B1/P2p4/2PP1PP1/4P1KP/RNQ2BNR w - - 3 13","sol":["g5f4","e5d5"],"th":"Táctica","alt":["g5f4"],"gain":3}];
+  var names = {"m1":"Mate en 1","m2":"Mate en 2","m3":"Mate en 3","mat":"Gana material"};
+  var byId = {}, packs = [], kinds = ['m1', 'm2', 'm3', 'mat'];
+  LIST.forEach(function (p) { byId[p.id] = p; });
+  kinds.forEach(function (k) {
+    var ids = LIST.filter(function (p) { return p.k === k; }).map(function (p) { return p.id; });
+    for (var i = 0; i * 10 < ids.length; i++) {
+      var part = ids.slice(i * 10, i * 10 + 10);
+      if (part.length < 4 && i > 0) { packs[packs.length - 1].ids = packs[packs.length - 1].ids.concat(part); continue; }
+      packs.push({ id: k + ':' + i, k: k, title: names[k] + ' · Parte ' + (i + 1), ids: part });
+    }
+  });
+  return { LIST: LIST, byId: byId, packs: packs };
+})();
+if (typeof module !== 'undefined') module.exports = Puzzles;
 
 (function () {
 "use strict";
 /* ---------- Utilidades de interfaz ---------- */
-var R = Rules, L = Lessons;
+var R = Rules, L = Lessons, SV = Solver;
 var GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟︎' };
 var PN = { p: 'peón', n: 'caballo', b: 'alfil', r: 'torre', q: 'dama', k: 'rey' };
 var FILES = 'abcdefgh';
@@ -1321,6 +1491,7 @@ try {
     if (!prog.games) prog.games = { w: 0, l: 0, d: 0 };
   }
 } catch (e) { /* sin almacenamiento: la app sigue funcionando */ }
+prog.pz = prog.pz || {}; prog.pts = prog.pts || 0; prog.mine = prog.mine || []; prog.streak = prog.streak || { n: 0, last: '' };
 function saveProg() { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) { /* ignorar */ } }
 
 /* ---------- Tablero ---------- */
@@ -1434,6 +1605,7 @@ function renderCoach(root, items, acts) {
 
 var TABS = {
   learn: 'Aprende jugando',
+  tact: 'Entrena tu vista táctica',
   play: 'Practica con entrenador',
   guide: 'Consulta rápida'
 };
@@ -1920,23 +2092,505 @@ function endGame(outcome, title, blurb) {
   var s = GM.g.s, lost = Coach.lost(s), opp = R.other(GM.color);
   var html = '<h3>' + esc(title) + '</h3><p>' + esc(blurb) + '</p><div class="stats"><span>' + Math.ceil(GM.g.moves.length / 2) + ' jugadas</span><span>capturaste ' +
     lost[opp].length + '</span><span>perdiste ' + lost[GM.color].length + '</span><span>' + GM.hints + ' pistas</span></div>' +
-    '<div class="actions"><button class="btn primary" type="button" id="ovAgain">Revancha</button><button class="btn" type="button" id="ovNew">Cambiar ajustes</button></div>';
+    '<div class="actions"><button class="btn primary" type="button" id="ovAgain">Revancha</button><button class="btn" type="button" id="ovNew">Cambiar ajustes</button></div>' +
+    (GM.g.moves.length >= 6 ? '<button class="btn big" type="button" id="ovReview">Revisar mi partida</button>' : '');
   var ov = $('over');
   ov.innerHTML = html;
   ov.hidden = false;
   $('ovAgain').addEventListener('click', startGame);
   $('ovNew').addEventListener('click', toSetup);
+  if ($('ovReview')) $('ovReview').addEventListener('click', startReview);
   var kind = outcome === 'w' ? 'good' : outcome === 'l' ? 'bad' : 'info';
   GM.feed = [{ k: kind, who: 'Fin de la partida', t: title + '.' }];
   renderFeed();
   drawGame();
 }
 
+/* ---------- Tácticas: problemas, entrenamiento diario y repaso de errores ---------- */
+var PUZ = Puzzles;
+var KINDS = {
+  m1: { name: 'Mate en 1', base: 5, sub: 'Encuentra el jaque mate de una sola jugada.' },
+  m2: { name: 'Mate en 2', base: 10, sub: 'Un jaque o una jugada preparatoria, y mate en la siguiente.' },
+  m3: { name: 'Mate en 3', base: 15, sub: 'Combinaciones más largas: calcula con calma.' },
+  mat: { name: 'Gana material', base: 10, sub: 'Horquillas y jaques que te hacen ganar piezas.' },
+  mine: { name: 'De tu partida', base: 8, sub: 'Posiciones donde pudiste jugar mejor.' }
+};
+var THEME_TXT = {
+  'Mate del pasillo': 'Mate del pasillo: el rey no puede escapar porque sus propios peones le cierran la salida.',
+  'Mate ahogado': 'Mate de la coz: el rey está rodeado por sus propias piezas y el caballo da el jaque definitivo.',
+  'Horquilla': 'Horquilla: una sola pieza ataca a dos o más piezas rivales a la vez y el rival solo puede salvar una.',
+  'Horquilla con jaque': 'Horquilla con jaque: el jaque obliga a responder y mientras tanto pierdes la otra pieza atacada.',
+  'Jaque que gana material': 'Jaque que gana material: el rival debe atender el jaque y no puede evitar la pérdida de una pieza.',
+  'Táctica': 'Táctica: la jugada crea una amenaza que el rival no puede parar del todo.'
+};
+var PZ = {
+  active: false, tab: 'tact', p: null, g: null, queue: [], qi: 0, sel: -1, locked: false, state: 'play',
+  errs: 0, hints: 0, hintStep: 0, last: null, pop: -1, notice: null, token: 0, board: null, mv: 0, back: null, ctx: ''
+};
+
+function today() { var d = new Date(); return Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 864e5); }
+function recOf(id) { return prog.pz[id] || { done: false, box: 0, due: 0, miss: false }; }
+function getPuz(id) {
+  if (PUZ.byId[id]) return PUZ.byId[id];
+  for (var i = 0; i < prog.mine.length; i++) if (prog.mine[i].id === id) return prog.mine[i];
+  return null;
+}
+function allIds() { return PUZ.LIST.map(function (p) { return p.id; }); }
+function missIds(onlyDue) {
+  var out = [], t = today();
+  Object.keys(prog.pz).forEach(function (id) {
+    var r = prog.pz[id];
+    if (r.miss && getPuz(id) && (!onlyDue || r.due <= t)) out.push(id);
+  });
+  out.sort(function (a, b) { return prog.pz[a].due - prog.pz[b].due; });
+  return out;
+}
+function markMiss(p) {
+  var r = prog.pz[p.id] || (prog.pz[p.id] = { done: false, box: 0, due: 0, miss: false });
+  r.miss = true; r.box = 0; r.due = today() + 1;
+}
+function shuffle(a) {
+  for (var i = a.length - 1; i > 0; i--) { var j = (Math.random() * (i + 1)) | 0, t = a[i]; a[i] = a[j]; a[j] = t; }
+  return a;
+}
+
+function dailyEnsure() {
+  var t = today();
+  if (prog.daily && prog.daily.day === t) return prog.daily;
+  var ids = missIds(true).slice(0, 2), i;
+  for (i = 0; i < PUZ.LIST.length && ids.length < 5; i++) {
+    var id = PUZ.LIST[i].id;
+    if (!recOf(id).done && ids.indexOf(id) < 0) ids.push(id);
+  }
+  if (ids.length < 5) {
+    var rest = shuffle(allIds().filter(function (x) { return ids.indexOf(x) < 0; }));
+    while (ids.length < 5 && rest.length) ids.push(rest.pop());
+  }
+  prog.daily = { day: t, ids: ids, fin: {} };
+  saveProg();
+  return prog.daily;
+}
+
+function packsOf() { return PUZ.packs; }
+function packDone(pk) { return pk.ids.filter(function (id) { return recOf(id).done; }).length; }
+
+function renderTact() {
+  var d = dailyEnsure(), fin = d.ids.filter(function (id) { return d.fin[id]; }).length;
+  var dots = d.ids.map(function (id) { return '<i class="' + (d.fin[id] ? 'on' : '') + '"></i>'; }).join('');
+  var miss = missIds(false).length, due = missIds(true).length;
+  var streak = prog.streak.n && (prog.streak.last === today() || prog.streak.last === today() - 1) ? prog.streak.n : 0;
+  var html = '<div class="card cont"><span class="label">Entrenamiento de hoy</span>' +
+    '<h2>' + (fin >= d.ids.length ? 'Listo por hoy' : d.ids.length + ' problemas para hoy') + '</h2>' +
+    '<div class="dots">' + dots + '</div>' +
+    '<p>' + (fin >= d.ids.length ? 'Volverás a tener un set nuevo mañana. Mientras tanto, practica un paquete.' : 'Se mezclan problemas nuevos con los que fallaste antes.') +
+    ' Racha: ' + streak + (streak === 1 ? ' día' : ' días') + ' · ' + prog.pts + ' puntos.</p>' +
+    '<button class="btn" type="button" data-daily="1">' + (fin >= d.ids.length ? 'Repetir el set' : fin ? 'Continuar' : 'Empezar') + '</button></div>';
+
+  html += '<button type="button" class="lrow' + (due ? ' next' : '') + '" data-miss="1"' + (miss ? '' : ' disabled') + '>' +
+    '<span class="dot">' + miss + '</span><span class="t">Mis errores<small>' + (miss ? (due ? due + ' toca repasar hoy' : 'Se repasan en los próximos días') : 'Aquí aparecen los que falles y los de tus partidas') + '</small></span><span class="go" aria-hidden="true">›</span></button>';
+
+  ['m1', 'm2', 'm3', 'mat'].forEach(function (k) {
+    var pks = packsOf().filter(function (pk) { return pk.k === k; });
+    var tot = 0, dn = 0;
+    pks.forEach(function (pk) { tot += pk.ids.length; dn += packDone(pk); });
+    html += '<div class="level"><div class="level-h"><h3>' + esc(KINDS[k].name) + '</h3><span class="n">' + dn + '/' + tot + '</span></div><p class="level-sub">' + esc(KINDS[k].sub) + '</p>';
+    pks.forEach(function (pk) {
+      var n = packDone(pk), full = n === pk.ids.length;
+      html += '<button type="button" class="lrow' + (full ? ' done' : '') + '" data-pack="' + pk.id + '"><span class="dot">' + (full ? '✓' : n) + '</span>' +
+        '<span class="t">' + esc(pk.title) + '<small>' + n + ' de ' + pk.ids.length + ' resueltos</small></span><span class="go" aria-hidden="true">›</span></button>';
+    });
+    html += '</div>';
+  });
+  $('tactHome').innerHTML = html;
+}
+
+function openQueue(ids, tab, back) {
+  if (!ids.length) return;
+  PZ.queue = ids.slice(); PZ.qi = 0; PZ.tab = tab; PZ.back = back || null; PZ.active = true;
+  showTab(tab);
+  loadPuzzle();
+}
+function openPack(id) {
+  var pk = packsOf().filter(function (x) { return x.id === id; })[0];
+  if (!pk) return;
+  var first = 0;
+  for (var i = 0; i < pk.ids.length; i++) if (!recOf(pk.ids[i]).done) { first = i; break; }
+  openQueue(pk.ids.slice(first).concat(pk.ids.slice(0, first)), 'tact');
+}
+
+function sideName(fen) { return fen.split(' ')[1] === 'w' ? 'blancas' : 'negras'; }
+
+function loadPuzzle() {
+  var p = getPuz(PZ.queue[PZ.qi]);
+  if (!p) { leavePuzzle(); return; }
+  PZ.p = p; PZ.token++;
+  PZ.g = new R.Game(p.fen);
+  PZ.sel = -1; PZ.locked = false; PZ.state = 'play'; PZ.errs = 0; PZ.hints = 0; PZ.hintStep = 0;
+  PZ.last = null; PZ.pop = -1; PZ.notice = null; PZ.mv = 0;
+  var kd = KINDS[p.k];
+  $('pzStep').textContent = 'Problema ' + (PZ.qi + 1) + ' de ' + PZ.queue.length;
+  $('pzTitle').textContent = p.k === 'mine' ? 'Tu partida, jugada ' + p.moveNo : kd.name;
+  $('pzNext').hidden = true; $('pzNext').textContent = PZ.qi + 1 < PZ.queue.length ? 'Siguiente' : 'Terminar';
+  $('pzHint').disabled = false; $('pzShow').disabled = false;
+  $('topSub').textContent = PZ.tab === 'play' ? 'Repaso de tu partida' : TABS.tact;
+  drawPuzzle();
+  renderCoach($('pzCoach'), [{ k: 'tip', who: 'Juegan ' + sideName(p.fen), t: introText(p) }]);
+  window.scrollTo(0, 0);
+}
+function introText(p) {
+  if (p.k === 'mine') return 'Aquí jugaste ' + p.san + ' (' + CLS_LABEL[p.cls].toLowerCase() + '). Busca una jugada mejor.';
+  if (p.k === 'mat') return 'Encuentra la jugada que te hace ganar material. Piensa en jaques y en piezas que puedas atacar a la vez.';
+  return 'Da jaque mate en ' + p.n + (p.n === 1 ? ' jugada' : ' jugadas') + '. Empieza buscando todos los jaques.';
+}
+
+function remaining() { return PZ.p.n - PZ.mv; }
+function firstSolution() {
+  var p = PZ.p, s = PZ.g.s;
+  if (p.k === 'm1' || p.k === 'm2' || p.k === 'm3') return SV.solve(s, remaining(), true)[0] || null;
+  var u = p.sol[PZ.mv * 2];
+  return PZ.g.legal().filter(function (m) { return SV.uci(m) === u; })[0] || null;
+}
+
+function drawPuzzle() {
+  var s = PZ.g.s, p = PZ.p;
+  var moves = (PZ.sel >= 0 && PZ.state === 'play' && !PZ.locked) ? PZ.g.legal().filter(function (m) { return m.from === PZ.sel; }) : [];
+  var hf = -1, ht = -1;
+  if (PZ.hintStep >= 1 && !PZ.locked && PZ.state !== 'solved') {
+    var sol = firstSolution();
+    if (sol) { hf = sol.from; if (PZ.hintStep >= 2) ht = sol.to; }
+  }
+  PZ.board.draw({
+    s: s, flip: p.fen.split(' ')[1] === 'b', sel: PZ.sel, moves: moves, last: PZ.last,
+    check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, hf: hf, ht: ht, pop: PZ.pop
+  });
+  $('pzPts').textContent = prog.pts + ' pts';
+}
+
+function puzzleTap(i) {
+  if (PZ.locked || PZ.state !== 'play') return;
+  var s = PZ.g.s, pc = s.b[i], mine = pc && (R.isW(pc) === (s.turn === 'w'));
+  var legal = PZ.g.legal();
+  if (PZ.sel >= 0) {
+    var cands = legal.filter(function (m) { return m.from === PZ.sel && m.to === i; });
+    if (cands.length) { chooseMove(cands, PZ.board.root.parentNode, puzzleMove); return; }
+    if (mine) { PZ.sel = PZ.sel === i ? -1 : i; PZ.notice = null; }
+    else PZ.notice = whyIllegal(s, PZ.sel, i);
+  } else if (mine) { PZ.sel = i; PZ.notice = null; }
+  drawPuzzle();
+  pzMsg();
+}
+function pzMsg() {
+  var items = [];
+  if (PZ.notice) items.push({ k: 'warn', who: 'Ojo', t: PZ.notice });
+  items.push({ k: 'tip', who: 'Juegan ' + sideName(PZ.p.fen), t: introText(PZ.p) });
+  renderCoach($('pzCoach'), items);
+}
+
+function judge(m) {
+  var p = PZ.p, s = PZ.g.s;
+  if (p.k === 'm1' || p.k === 'm2' || p.k === 'm3') return SV.moveForces(s, m, remaining(), true);
+  var u = SV.uci(m);
+  return u === p.sol[0] || (p.alt || []).indexOf(u) >= 0;
+}
+
+function puzzleMove(m) {
+  var p = PZ.p;
+  PZ.sel = -1;
+  if (!judge(m)) {
+    PZ.errs++;
+    markMiss(p);
+    saveProg();
+    var msg = p.k === 'mat' || p.k === 'mine'
+      ? 'Esa no es la jugada más fuerte. Mira qué piezas rivales puedes atacar o si hay un jaque útil.'
+      : 'Esa jugada no fuerza el mate. Busca jaques que dejen al rey sin casillas libres.';
+    PZ.notice = msg + (PZ.errs >= 2 ? ' Si te atascas, usa Pista.' : '');
+    drawPuzzle();
+    pzMsg();
+    return;
+  }
+  PZ.g.play(m);
+  PZ.last = { from: m.from, to: m.to }; PZ.pop = m.to; PZ.notice = null; PZ.mv++;
+  var st = R.status(PZ.g.s);
+  if (p.k === 'mine') { finishPuzzle(); return; }
+  if (st.result === 'checkmate') { finishPuzzle(); return; }
+  PZ.locked = true; PZ.hintStep = 0;
+  drawPuzzle();
+  renderCoach($('pzCoach'), [{ k: 'good', who: 'Bien', t: 'Jugada correcta. El rival responde…' }]);
+  var tk = PZ.token;
+  setTimeout(function () {
+    if (tk !== PZ.token) return;
+    var c = PZ.g.s, reply = null;
+    if (p.k === 'mat') {
+      reply = PZ.g.legal().filter(function (x) { return SV.uci(x) === p.sol[1] && SV.uci(m) === p.sol[0]; })[0] || AI.rootSearch(c, 3, 300, 0)[0].m;
+    } else reply = SV.bestDefense(c, remaining());
+    PZ.g.play(reply);
+    PZ.last = { from: reply.from, to: reply.to }; PZ.pop = reply.to; PZ.locked = false;
+    if (p.k === 'mat') { finishPuzzle(); return; }
+    drawPuzzle();
+    renderCoach($('pzCoach'), [{ k: 'tip', who: 'Tu turno', t: 'Sigue: te queda' + (remaining() === 1 ? ' 1 jugada' : 'n ' + remaining() + ' jugadas') + ' para dar mate.' }]);
+  }, 600);
+}
+
+function fmtLine(startFen, sans) {
+  var parts = startFen.split(' '), black = parts[1] === 'b', n = +parts[5] || 1, out = [], i;
+  for (i = 0; i < sans.length; i++) {
+    var isBlackMove = black ? (i % 2 === 0) : (i % 2 === 1);
+    if (!isBlackMove) out.push(n + '. ' + sans[i]);
+    else out.push((i === 0 ? n + '... ' : '') + sans[i]);
+    if (isBlackMove) n++;
+  }
+  return out.join(' ');
+}
+
+function explain(p, solved) {
+  var items = [];
+  if (p.k === 'mine') {
+    items.push({ k: solved ? 'good' : 'tip', who: 'La mejor jugada', t: p.bestSan + ': ' + p.reason + '.' });
+    if (p.refSan) items.push({ k: 'warn', who: 'Qué pasó en tu partida', t: 'Tras ' + p.san + ', el rival tenía ' + p.refSan + '.' });
+    return items;
+  }
+  var th = THEME_TXT[p.th] || '';
+  if (p.k === 'mat') {
+    items.push({ k: 'tip', who: 'Idea', t: (th || THEME_TXT['Táctica']) + ' Ganas ' + (p.gain || 2) + ' puntos de material.' });
+  } else {
+    items.push({ k: 'tip', who: 'Idea', t: th || 'Antes de mover, cuenta las casillas libres del rey: si cada jaque las cubre, es mate.' });
+  }
+  return items;
+}
+
+function finishPuzzle() {
+  var p = PZ.p, base = KINDS[p.k].base, rec = prog.pz[p.id] || (prog.pz[p.id] = { done: false, box: 0, due: 0, miss: false });
+  var clean = PZ.errs === 0 && PZ.hints === 0, pts = 0, first = !rec.done;
+  PZ.state = 'solved'; PZ.locked = false; PZ.hintStep = 0;
+  if (first) pts = clean ? base : Math.max(1, Math.ceil(base / 2));
+  else if (rec.miss && clean) pts = 2;
+  rec.done = true;
+  if (clean) {
+    if (rec.miss) { rec.box++; rec.due = today() + [1, 2, 4, 8][Math.min(rec.box, 3)]; if (rec.box >= 3) rec.miss = false; }
+  } else { rec.miss = true; rec.box = 0; rec.due = today() + 1; }
+  prog.pts += pts;
+  var d = prog.daily, extra = '';
+  if (d && d.day === today() && d.ids.indexOf(p.id) >= 0 && !d.fin[p.id]) {
+    d.fin[p.id] = 1;
+    if (d.ids.every(function (id) { return d.fin[id]; })) {
+      if (prog.streak.last !== today()) { prog.streak.n = prog.streak.last === today() - 1 ? prog.streak.n + 1 : 1; prog.streak.last = today(); }
+      extra = ' ¡Completaste el entrenamiento de hoy! Racha: ' + prog.streak.n + (prog.streak.n === 1 ? ' día.' : ' días.');
+    }
+  }
+  saveProg();
+  var items = [{ k: 'good', who: clean ? '¡Resuelto!' : 'Resuelto', t: (clean ? 'Sin pistas ni errores.' : 'Lo lograste con ayuda; volverá a salir para repasarlo.') + (pts ? ' +' + pts + ' puntos.' : '') + extra }];
+  items = items.concat(explain(p, true));
+  if (p.k !== 'mine') items.push({ k: 'info', who: 'Línea', t: fmtLine(p.fen, PZ.g.sans) });
+  drawPuzzle();
+  renderCoach($('pzCoach'), items);
+  $('pzNext').hidden = false; $('pzHint').disabled = true; $('pzShow').disabled = true;
+}
+
+function puzzleHint() {
+  if (PZ.state !== 'play' || PZ.locked) return;
+  PZ.hintStep = Math.min(2, PZ.hintStep + 1);
+  PZ.hints++;
+  markMiss(PZ.p); saveProg();
+  PZ.sel = -1;
+  drawPuzzle();
+  var p = PZ.p;
+  renderCoach($('pzCoach'), [{ k: 'tip', who: 'Pista', t: PZ.hintStep === 1
+    ? 'Mira la pieza resaltada: es la que tienes que mover.'
+    : 'Esa pieza va a la casilla resaltada.' }]);
+}
+
+function puzzleShow() {
+  if (PZ.state !== 'play' || PZ.locked) return;
+  var p = PZ.p, sol = firstSolution();
+  markMiss(p); saveProg();
+  PZ.state = 'shown'; PZ.sel = -1; PZ.hintStep = 2;
+  var line = '';
+  if (sol) {
+    if (p.k === 'mine') line = p.bestSan;
+    else {
+      var cur = new R.Game(PZ.g.s ? R.toFEN(PZ.g.s) : p.fen), ucis = p.k === 'mat' ? p.sol : null;
+      if (!ucis) {
+        var ln = SV.line(PZ.g.s, sol, remaining());
+        ucis = ln.map(SV.uci);
+      }
+      ucis.forEach(function (u) {
+        var mm = cur.legal().filter(function (x) { return SV.uci(x) === u; })[0];
+        if (mm) cur.play(mm);
+      });
+      line = fmtLine(R.toFEN(PZ.g.s), cur.sans);
+    }
+  }
+  drawPuzzle();
+  var items = [{ k: 'tip', who: 'Solución', t: line ? 'La jugada está marcada en el tablero. Línea: ' + line : 'Mira la jugada marcada en el tablero.' }].concat(explain(p, false));
+  renderCoach($('pzCoach'), items);
+  $('pzNext').hidden = false; $('pzHint').disabled = true; $('pzShow').disabled = true;
+}
+
+function puzzleNext() {
+  if (PZ.qi + 1 < PZ.queue.length) { PZ.qi++; loadPuzzle(); }
+  else leavePuzzle();
+}
+function leavePuzzle() {
+  PZ.active = false; PZ.token++;
+  saveProg();
+  if (PZ.tab === 'play') { if (PZ.back) PZ.back(); showTab('play'); }
+  else { renderTact(); showTab('tact'); }
+}
+
+/* ---------- Revisión de la partida ---------- */
+var CLS_LABEL = { blunder: 'Error grave', mistake: 'Error', inacc: 'Imprecisión', good: 'Buena jugada' };
+var RV = { active: false, snap: null, token: 0, done: false, total: 0, at: 0, res: null };
+
+function clampSc(x) { return Math.max(-1500, Math.min(1500, x)); }
+
+function startReview() {
+  var g = GM.g;
+  RV.snap = { states: g.states.slice(), moves: g.moves.slice(), sans: g.sans.slice(), color: GM.color };
+  RV.active = true; RV.done = false; RV.res = null; RV.at = 0; RV.token++;
+  var idx = [];
+  for (var i = 0; i < RV.snap.moves.length; i++) if (RV.snap.states[i].turn === RV.snap.color) idx.push(i);
+  RV.idx = idx; RV.total = idx.length; RV.recs = [];
+  showTab('play');
+  renderReview();
+  var tk = RV.token;
+  setTimeout(function () { reviewStep(tk); }, 30);
+}
+
+function reviewStep(tk) {
+  if (tk !== RV.token) return;
+  if (RV.at >= RV.idx.length) { reviewFinish(tk); return; }
+  var i = RV.idx[RV.at], sn = RV.snap, s = sn.states[i], m = sn.moves[i], legal = R.genLegal(s);
+  RV.at++;
+  if (legal.length > 1) {
+    var best = AI.rootSearch(s, 4, 300, 0), rec = null;
+    if (best.depth >= 2) {
+      var bm = best[0].m, same = SV.uci(bm) === SV.uci(m), loss = 0, lostMate = false, ps = best[0].sc;
+      if (!same) {
+        ps = AI.scoreMove(s, m, best.depth, 300);
+        if (ps !== null) {
+          lostMate = best[0].sc > 90000 && ps < 90000;
+          loss = (best[0].sc > 90000 && ps > 90000) ? 0 : clampSc(best[0].sc) - clampSc(ps);
+        }
+      }
+      if (ps !== null) {
+        var cls = lostMate || loss >= 300 ? 'blunder' : loss >= 130 ? 'mistake' : loss >= 60 ? 'inacc' : 'good';
+        rec = { ply: i, moveNo: Math.floor(i / 2) + 1, san: sn.sans[i], loss: loss, cls: cls, lostMate: lostMate, bm: bm, depth: best.depth };
+      }
+    }
+    if (rec) RV.recs.push(rec);
+  }
+  renderReview();
+  setTimeout(function () { reviewStep(tk); }, 15);
+}
+
+function reviewFinish(tk) {
+  if (tk !== RV.token) return;
+  var sn = RV.snap, recs = RV.recs, bad = recs.filter(function (r) { return r.cls === 'blunder' || r.cls === 'mistake'; });
+  bad.sort(function (a, b) { return b.loss - a.loss; });
+  bad = bad.slice(0, 5).sort(function (a, b) { return a.ply - b.ply; });
+  var moments = [], k = 0;
+  function one() {
+    if (tk !== RV.token) return;
+    if (k >= bad.length) { RV.moments = moments; RV.done = true; saveProg(); renderReview(); return; }
+    var r = bad[k++], s = sn.states[r.ply], child = R.makeMove(s, sn.moves[r.ply]);
+    var wide = AI.rootSearch(s, Math.min(r.depth, 3), 450, 60), top = wide[0].sc;
+    var alt = wide.filter(function (x, i) { return i > 0 && x.sc > top - 60; }).map(function (x) { return SV.uci(x.m); });
+    var ref = AI.rootSearch(child, 3, 250, 0), refSan = ref.length ? R.san(child, ref[0].m) : '';
+    var gains = Coach.gains(child).filter(function (g) { return g.net >= 150; });
+    var missed = Coach.gains(s).filter(function (g) { return g.net >= 150; });
+    var tag = r.lostMate ? 'mate' : gains.length ? 'colgada' : missed.length ? 'captura' : 'otro';
+    var p = {
+      id: 'g' + Date.now().toString(36) + k, k: 'mine', fen: R.toFEN(s), sol: [SV.uci(r.bm)], alt: alt,
+      th: 'De tu partida', moveNo: r.moveNo, san: r.san, bestSan: R.san(s, r.bm), cls: r.cls, loss: r.loss,
+      reason: Coach.why(s, r.bm), refSan: refSan, tag: tag, d: 0
+    };
+    moments.push(p);
+    var dup = prog.mine.filter(function (x) { return x.fen === p.fen; })[0];
+    if (dup) { p.id = dup.id; } else {
+      prog.mine.push(p);
+      if (prog.mine.length > 40) {
+        var drop = prog.mine.filter(function (x) { return !(prog.pz[x.id] || {}).miss; })[0] || prog.mine[0];
+        prog.mine.splice(prog.mine.indexOf(drop), 1);
+        delete prog.pz[drop.id];
+      }
+    }
+    var rr = prog.pz[p.id];
+    if (!rr || !rr.miss) prog.pz[p.id] = { done: false, box: 0, due: today() + 1, miss: true };
+    renderReview();
+    setTimeout(one, 15);
+  }
+  RV.moments = [];
+  setTimeout(one, 15);
+}
+
+function reviewTip(moments) {
+  var c = {};
+  moments.forEach(function (p) { c[p.tag] = (c[p.tag] || 0) + 1; });
+  var top = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; })[0];
+  return {
+    colgada: 'Tu patrón principal: dejar piezas sin defensa. Antes de mover, pregúntate qué podría capturar tu rival después de tu jugada.',
+    captura: 'Tu patrón principal: no ver capturas ganadoras. Antes de mover, revisa si el rival dejó alguna pieza sin defender.',
+    mate: 'Se te escapó un mate. Antes de cada jugada, repasa todos los jaques posibles, incluso los que parecen raros.',
+    otro: 'Las posiciones críticas están marcadas abajo. Piensa en amenazas del rival antes de elegir tu jugada.'
+  }[top];
+}
+
+function renderReview() {
+  var root = $('rvBody'), html = '';
+  if (!RV.done) {
+    var pct = RV.total ? Math.round(RV.at * 100 / RV.total) : 100;
+    html = '<div class="card"><h3>Analizando tu partida</h3><p class="muted">Reviso cada una de tus jugadas ' + (RV.at < RV.total ? '(' + RV.at + ' de ' + RV.total + ')' : 'y busco los momentos clave') +
+      '. Puede tardar unos segundos.</p><div class="bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>';
+    root.innerHTML = html;
+    return;
+  }
+  var recs = RV.recs, n = recs.length, cnt = { good: 0, inacc: 0, mistake: 0, blunder: 0 };
+  recs.forEach(function (r) { cnt[r.cls]++; });
+  html += '<div class="card"><h3>Resumen</h3>';
+  if (!n) html += '<p>La partida fue muy corta para analizarla. Juega unas jugadas más y vuelve a intentarlo.</p>';
+  else {
+    html += '<div class="rvstats"><div><b>' + cnt.good + '</b><small>Sólidas</small></div><div><b>' + cnt.inacc + '</b><small>Imprecisiones</small></div>' +
+      '<div><b>' + cnt.mistake + '</b><small>Errores</small></div><div><b>' + cnt.blunder + '</b><small>Graves</small></div></div>';
+    html += '<p>' + (cnt.blunder + cnt.mistake === 0
+      ? 'No cometiste errores importantes en ' + n + ' jugadas. Buen control de la partida.'
+      : cnt.good + ' de tus ' + n + ' jugadas fueron sólidas. ' + reviewTip(RV.moments)) + '</p>';
+  }
+  html += '</div>';
+  if (RV.moments.length) {
+    html += '<div class="level"><div class="level-h"><h3>Momentos clave</h3><span class="n">' + RV.moments.length + '</span></div>' +
+      '<p class="level-sub">Toca uno para intentar encontrar la mejor jugada. También quedaron guardados en Tácticas, en Mis errores.</p>';
+    RV.moments.forEach(function (p, i) {
+      html += '<button type="button" class="lrow" data-m="' + i + '"><span class="dot">' + p.moveNo + '</span><span class="t">Jugaste ' + esc(p.san) +
+        '<small>' + esc(CLS_LABEL[p.cls]) + ' · mejor: ' + esc(p.bestSan) + '</small></span><span class="go" aria-hidden="true">›</span></button>';
+    });
+    html += '<button type="button" class="btn primary big" data-m="all">Practicar los ' + RV.moments.length + ' momentos</button></div>';
+  }
+  root.innerHTML = html;
+}
+
+function reviewOpen(which) {
+  var ids = RV.moments.map(function (p) { return p.id; });
+  if (which === 'all') openQueue(ids, 'play', renderReview);
+  else {
+    var i = +which;
+    openQueue(ids.slice(i).concat(ids.slice(0, i)), 'play', renderReview);
+  }
+}
+
+function leaveReview() {
+  RV.active = false; RV.token++;
+  showTab('play');
+}
+
 /* ---------- Navegación e inicio ---------- */
 function showTab(t) {
-  var views = ['v-learn', 'v-lesson', 'v-play', 'v-guide'], i;
+  var views = ['v-learn', 'v-lesson', 'v-tact', 'v-puzzle', 'v-review', 'v-play', 'v-guide'], i;
   for (i = 0; i < views.length; i++) $(views[i]).hidden = true;
-  var target = t === 'learn' ? (LS.active ? 'v-lesson' : 'v-learn') : 'v-' + t;
+  var target;
+  if (t === 'learn') target = LS.active ? 'v-lesson' : 'v-learn';
+  else if (t === 'tact') target = (PZ.active && PZ.tab === 'tact') ? 'v-puzzle' : 'v-tact';
+  else if (t === 'play') target = (PZ.active && PZ.tab === 'play') ? 'v-puzzle' : RV.active ? 'v-review' : 'v-play';
+  else target = 'v-' + t;
   $(target).hidden = false;
   var btns = $('tabs').querySelectorAll('button');
   for (i = 0; i < btns.length; i++) btns[i].classList.toggle('on', btns[i].dataset.tab === t);
@@ -1949,8 +2603,13 @@ function showTab(t) {
       renderLearn();
       $('topSub').textContent = TABS.learn;
     }
+  } else if (t === 'tact') {
+    if (target === 'v-tact') { renderTact(); $('topSub').textContent = TABS.tact; }
+    else $('topSub').textContent = TABS.tact;
   } else if (t === 'play') {
-    if ($('game').hidden) { renderPlaySetup(); $('topSub').textContent = TABS.play; }
+    if (target === 'v-puzzle') $('topSub').textContent = 'Repaso de tu partida';
+    else if (target === 'v-review') $('topSub').textContent = 'Revisión de la partida';
+    else if ($('game').hidden) { renderPlaySetup(); $('topSub').textContent = TABS.play; }
     else $('topSub').textContent = 'Partida · ' + (GM.color === 'w' ? 'blancas' : 'negras');
   } else {
     $('topSub').textContent = TABS.guide;
@@ -1978,6 +2637,25 @@ function init() {
     if (t) { openLesson(t.dataset.id); return; }
     var g = up(e.target, 'go', $('contCard'));
     if (g) showTab(g.dataset.go);
+  });
+  PZ.board = makeBoard($('pzBoard'));
+  PZ.board.onTap = puzzleTap;
+  $('pzBack').addEventListener('click', leavePuzzle);
+  $('pzHint').addEventListener('click', puzzleHint);
+  $('pzShow').addEventListener('click', puzzleShow);
+  $('pzNext').addEventListener('click', puzzleNext);
+  $('rvBack').addEventListener('click', leaveReview);
+  $('rvBody').addEventListener('click', function (e) {
+    var t = up(e.target, 'm', $('rvBody'));
+    if (t) reviewOpen(t.dataset.m);
+  });
+  $('tactHome').addEventListener('click', function (e) {
+    var t = up(e.target, 'daily', $('tactHome'));
+    if (t) { openQueue(dailyEnsure().ids, 'tact'); return; }
+    t = up(e.target, 'miss', $('tactHome'));
+    if (t) { if (!t.disabled) { var due = missIds(true), all = missIds(false); openQueue((due.length ? due : all).slice(0, 10), 'tact'); } return; }
+    t = up(e.target, 'pack', $('tactHome'));
+    if (t) openPack(t.dataset.pack);
   });
   $('lsBack').addEventListener('click', leaveLesson);
   $('lsHint').addEventListener('click', lessonHint);
