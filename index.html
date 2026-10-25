@@ -235,6 +235,7 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
 #pzPts { margin-left: auto; }
 .card.over .big { margin-top: 10px; }
 #rvBody .bar { color: var(--accent); margin-top: 10px; }
+.opmoves { font-family: var(--mono); font-size: 12.5px; margin: -4px 0 0; min-height: 1.4em; }
 
 </style>
 
@@ -256,6 +257,7 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
       <div class="card cont" id="contCard"></div>
       <div id="levels" class="view"></div>
       <div id="endList" class="view"></div>
+      <div id="openList" class="view"></div>
       <div class="tipcard" id="tipCard"></div>
     </section>
 
@@ -272,6 +274,23 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
         <button class="btn" id="lsHint" type="button">Pista</button>
         <button class="btn" id="lsReset" type="button">Reiniciar</button>
         <button class="btn primary" id="lsNext" type="button" hidden>Siguiente</button>
+      </div>
+    </section>
+
+    <!-- Apertura -->
+    <section id="v-opening" class="view" hidden>
+      <div class="head">
+        <button class="btn ghost" id="opBack" type="button">&larr; Aperturas</button>
+        <span class="step" id="opStep"></span>
+      </div>
+      <h2 id="opTitle"></h2>
+      <div class="board-wrap"><div id="opBoard"></div></div>
+      <p class="muted opmoves" id="opMoves"></p>
+      <div class="coach" id="opCoach" aria-live="polite"></div>
+      <div class="actions">
+        <button class="btn" id="opHint" type="button">Pista</button>
+        <button class="btn" id="opReset" type="button">Reiniciar</button>
+        <button class="btn primary" id="opNext" type="button" hidden>Siguiente apertura</button>
       </div>
     </section>
 
@@ -1520,6 +1539,136 @@ var Endgames = (function () {
 })();
 if (typeof module !== 'undefined') module.exports = Endgames;
 
+var Openings = (function () {
+  function L(arr) { return arr.map(function (x) { return { s: x[0], t: x[1] }; }); }
+  var LIST = [
+    { id: 'italiana', title: 'Italiana (blancas)', side: 'w',
+      sub: 'Ataque tranquilo al punto débil f7',
+      plan: 'Plan a seguir: lleva el caballo de b1 hacia g3 por d2 y f1, y avanza d4 cuando tus piezas estén listas. Si el rival se desvía, mantén las mismas ideas: centro, desarrollo y rey a salvo.',
+      line: L([
+        ['e4', 'Ocupa el centro y abre líneas para el alfil de rey y la dama.'],
+        ['e5', 'El rival responde con la misma idea.'],
+        ['Nf3', 'Desarrolla un caballo y ataca el peón de e5.'],
+        ['Nc6', 'Defiende su peón desarrollando una pieza.'],
+        ['Bc4', 'El alfil apunta a f7, el punto más débil del rival, y prepara el enroque.'],
+        ['Bc5', 'El rival coloca su alfil de forma simétrica.'],
+        ['c3', 'Prepara el avance d4 para tener dos peones en el centro.'],
+        ['Nf6', 'Desarrolla atacando tu peón de e4.'],
+        ['d3', 'Defiende e4 de forma sólida y libera el alfil de c1. Es el plan tranquilo de esta apertura.'],
+        ['d6', 'Defiende su centro y libera su alfil.'],
+        ['O-O', 'Enroca: el rey queda a salvo y la torre se activa.'],
+        ['O-O', 'El rival también pone su rey a salvo.'],
+        ['Re1', 'La torre defiende e4 y apoya un futuro avance en el centro.'],
+        ['a6', 'El rival prepara retirar su alfil o jugar b5.'],
+        ['Bb3', 'Retiras el alfil a una casilla segura; sigue apuntando a f7 y evitas que lo ataquen con ...b5.'],
+        ['Ba7', 'El rival también retira su alfil.'],
+        ['h3', 'Quita la casilla g4 al alfil rival y evita clavar tu caballo de f3.']
+      ]) },
+    { id: 'londres', title: 'Sistema Londres (blancas)', side: 'w',
+      sub: 'Montaje fácil de recordar contra casi todo',
+      plan: 'Plan a seguir: enroca corto y busca la ruptura e4 (o Ne5). Este montaje con peones en c3, d4 y e3 y alfil en f4 sirve contra muchas respuestas.',
+      line: L([
+        ['d4', 'Ocupa el centro con el peón de dama y libera el alfil de c1.'],
+        ['d5', 'El rival también ocupa el centro.'],
+        ['Bf4', 'Saca el alfil de dama antes de cerrarlo con e3: es la idea del sistema Londres.'],
+        ['Nf6', 'Desarrolla un caballo y controla e4.'],
+        ['e3', 'Protege el alfil y abre el camino al alfil de rey.'],
+        ['e6', 'Abre la diagonal de su alfil de rey.'],
+        ['Nf3', 'Desarrolla el caballo y controla e5.'],
+        ['Bd6', 'El rival quiere cambiar tu alfil activo.'],
+        ['Bg3', 'Retiras el alfil: si lo cambia, recapturas con el peón de h y abres la columna h.'],
+        ['O-O', 'El rival enroca.'],
+        ['Nbd2', 'Desarrolla el otro caballo y prepara la ruptura e4.'],
+        ['c5', 'El rival ataca tu centro.'],
+        ['c3', 'Refuerza d4 y asegura el centro.'],
+        ['Nc6', 'Más presión sobre d4.'],
+        ['Bd3', 'Desarrolla el último alfil hacia el flanco de rey y prepara tu enroque.']
+      ]) },
+    { id: 'gambito', title: 'Gambito de dama (blancas)', side: 'w',
+      sub: 'Presión en el centro con peones y piezas',
+      plan: 'Plan a seguir: enroca, juega Bd3 o Qc2 y busca capturar en d5 cuando convenga. Si el rival acepta el gambito con ...dxc4, recupera el peón desarrollando rápido.',
+      line: L([
+        ['d4', 'Ocupa el centro y abre el alfil de dama.'],
+        ['d5', 'El rival también ocupa el centro.'],
+        ['c4', 'Ofreces un peón (gambito): si lo toma, no podrá conservarlo y tú ganas control del centro.'],
+        ['e6', 'Defiende d5 con un peón.'],
+        ['Nc3', 'Desarrolla un caballo y presiona el peón de d5.'],
+        ['Nf6', 'Desarrolla y defiende d5 otra vez.'],
+        ['Bg5', 'Clava el caballo que defiende d5: aumenta la presión sobre el centro rival.'],
+        ['Be7', 'El rival rompe la clavada y se prepara para enrocar.'],
+        ['e3', 'Apoya el centro y abre el camino al alfil de rey.'],
+        ['O-O', 'El rival enroca.'],
+        ['Nf3', 'Desarrolla el segundo caballo y controla e5.'],
+        ['Nbd7', 'El rival completa su desarrollo.']
+      ]) },
+    { id: 'francesa', title: 'Defensa Francesa (negras)', side: 'b',
+      sub: 'Respuesta sólida a 1.e4 con contraataque en el centro',
+      plan: 'Plan a seguir: presiona d4 con ...Nc6 y ...cxd4, y busca contraataque en el centro. Cuidado con el alfil de c8: es tu pieza más difícil de desarrollar.',
+      line: L([
+        ['e4', 'Las blancas abren con el peón de rey.'],
+        ['e6', 'Prepara d5 para disputar el centro con un peón sólido.'],
+        ['d4', 'Las blancas ocupan el centro.'],
+        ['d5', 'Atacas el peón de e4 y reclamas tu parte del centro.'],
+        ['Nc3', 'Las blancas defienden e4 desarrollando.'],
+        ['Nf6', 'Desarrollas atacando el peón de e4.'],
+        ['Bg5', 'Las blancas clavan tu caballo.'],
+        ['Be7', 'Rompes la clavada y preparas el enroque.'],
+        ['e5', 'Las blancas atacan tu caballo avanzando el peón.'],
+        ['Nfd7', 'El caballo se retira; desde allí ataca la cadena de peones blancos.'],
+        ['Bxe7', 'Las blancas cambian los alfiles.'],
+        ['Qxe7', 'Recapturas con la dama.'],
+        ['f4', 'Las blancas refuerzan el peón de e5.'],
+        ['O-O', 'Enrocas: tu rey queda a salvo.'],
+        ['Nf3', 'Las blancas desarrollan.'],
+        ['c5', 'Atacas la base de la cadena de peones blancos: el peón de d4.']
+      ]) },
+    { id: 'carokann', title: 'Defensa Caro-Kann (negras)', side: 'b',
+      sub: 'Estructura sólida y alfil bien colocado',
+      plan: 'Plan a seguir: desarrolla Ngf6, enroca y cambia piezas con calma. Tu estructura es muy sólida y casi no tiene debilidades.',
+      line: L([
+        ['e4', 'Las blancas abren con el peón de rey.'],
+        ['c6', 'Prepara d5 apoyándolo con el peón de c y deja libre la diagonal de tu alfil de dama.'],
+        ['d4', 'Las blancas ocupan el centro.'],
+        ['d5', 'Atacas el peón de e4.'],
+        ['Nc3', 'Las blancas defienden e4.'],
+        ['dxe4', 'Capturas para liberar tu alfil de dama.'],
+        ['Nxe4', 'Las blancas recuperan el peón.'],
+        ['Bf5', 'Sacas el alfil fuera de tu cadena de peones antes de jugar e6: es la idea clave de la Caro-Kann.'],
+        ['Ng3', 'Las blancas atacan tu alfil.'],
+        ['Bg6', 'Retiras el alfil manteniéndolo activo.'],
+        ['h4', 'Las blancas amenazan h5 para atrapar el alfil.'],
+        ['h6', 'Das aire al alfil: si llega h5, tendrá la casilla h7.'],
+        ['Nf3', 'Las blancas desarrollan.'],
+        ['Nd7', 'Desarrollas el caballo y preparas Ngf6.'],
+        ['h5', 'Las blancas atacan otra vez al alfil.'],
+        ['Bh7', 'El alfil queda a salvo en h7.'],
+        ['Bd3', 'Las blancas ofrecen cambiar los alfiles.'],
+        ['Bxd3', 'Cambias tu alfil por el suyo, que era el más activo.'],
+        ['Qxd3', 'Las blancas recapturan.'],
+        ['e6', 'Cierras tu estructura y completas un montaje sólido.']
+      ]) },
+    { id: 'indiarey', title: 'India de Rey (negras)', side: 'b',
+      sub: 'Contraataque contra un gran centro blanco',
+      plan: 'Plan a seguir: cuando las blancas abran el juego, ataca su centro con ...exd4 o ...c6, y usa el alfil de g7 como arma principal.',
+      line: L([
+        ['d4', 'Las blancas ocupan el centro.'],
+        ['Nf6', 'Controla e4 sin comprometer peones.'],
+        ['c4', 'Las blancas ganan más espacio.'],
+        ['g6', 'Prepara el fianchetto: el alfil irá a g7.'],
+        ['Nc3', 'Las blancas desarrollan.'],
+        ['Bg7', 'El alfil apunta al centro y a toda la diagonal larga.'],
+        ['e4', 'Las blancas construyen un gran centro de peones.'],
+        ['d6', 'Apoya la ruptura e5 y libera tu alfil de dama.'],
+        ['Nf3', 'Las blancas desarrollan.'],
+        ['O-O', 'Enrocas: el rey queda a salvo.'],
+        ['Be2', 'Las blancas preparan su enroque.'],
+        ['e5', 'Golpeas el centro blanco: es la ruptura típica de esta defensa.']
+      ]) }
+  ];
+  return { LIST: LIST };
+})();
+if (typeof module !== 'undefined') module.exports = Openings;
+
 (function () {
 "use strict";
 /* ---------- Utilidades de interfaz ---------- */
@@ -1552,7 +1701,7 @@ try {
     if (!prog.games) prog.games = { w: 0, l: 0, d: 0 };
   }
 } catch (e) { /* sin almacenamiento: la app sigue funcionando */ }
-prog.end = prog.end || {}; prog.pz = prog.pz || {}; prog.pts = prog.pts || 0; prog.mine = prog.mine || []; prog.streak = prog.streak || { n: 0, last: '' };
+prog.end = prog.end || {}; prog.open = prog.open || {}; prog.pz = prog.pz || {}; prog.pts = prog.pts || 0; prog.mine = prog.mine || []; prog.streak = prog.streak || { n: 0, last: '' };
 function saveProg() { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) { /* ignorar */ } }
 
 /* ---------- Tablero ---------- */
@@ -1724,6 +1873,7 @@ function renderLearn() {
   $('levels').innerHTML = html;
 
   renderEndList();
+  renderOpenList();
   var tip = TIPS[Math.floor(Date.now() / 864e5) % TIPS.length];
   $('tipCard').innerHTML = '<span aria-hidden="true">♞</span><div><b>Consejo del día</b><br>' + esc(tip) + '</div>';
 }
@@ -2644,6 +2794,151 @@ function leaveEnding() {
   showTab('learn');
 }
 
+/* ---------- Aperturas: ensayar una línea con explicación de cada jugada ---------- */
+var OP = { active: false, idx: 0, g: null, i: 0, sel: -1, locked: false, state: 'play', errs: 0, hintStep: 0, last: null, pop: -1, notice: null, token: 0, board: null };
+
+function curOpening() { return Openings.LIST[OP.idx]; }
+function stripSan(x) { return x.replace(/[+#]/g, ''); }
+function bookMove(s, san) {
+  var legal = R.genLegal(s);
+  return legal.filter(function (m) { return stripSan(R.san(s, m, legal)) === san; })[0] || null;
+}
+
+function renderOpenList() {
+  var html = '<div class="level"><div class="level-h"><h3>Nivel 6 · Aperturas</h3><span class="n">' +
+    Openings.LIST.filter(function (o) { return prog.open[o.id] !== undefined; }).length + '/' + Openings.LIST.length + '</span></div>' +
+    '<p class="level-sub">Aprende a empezar bien: cada jugada viene con su razón. Tres para blancas y tres para negras.</p>';
+  Openings.LIST.forEach(function (o, i) {
+    var r = prog.open[o.id], d = r !== undefined;
+    html += '<button type="button" class="lrow' + (d ? ' done' : '') + '" data-open="' + o.id + '"><span class="dot">' + (d ? '✓' : (i + 1)) + '</span>' +
+      '<span class="t">' + esc(o.title) + '<small>' + (d ? (r === 0 ? 'Sin errores' : r + (r === 1 ? ' error' : ' errores')) + ' · ' : '') + esc(o.sub) + '</small></span><span class="go" aria-hidden="true">›</span></button>';
+  });
+  $('openList').innerHTML = html + '</div>';
+}
+
+function openOpening(id) {
+  for (var i = 0; i < Openings.LIST.length; i++) if (Openings.LIST[i].id === id) OP.idx = i;
+  OP.active = true;
+  showTab('learn');
+  loadOpening();
+}
+
+function loadOpening() {
+  var o = curOpening();
+  OP.token++;
+  OP.g = new R.Game();
+  OP.i = 0; OP.sel = -1; OP.locked = false; OP.state = 'play'; OP.errs = 0; OP.hintStep = 0; OP.last = null; OP.pop = -1; OP.notice = null;
+  $('opTitle').textContent = o.title;
+  $('opNext').hidden = true; $('opHint').disabled = false;
+  $('topSub').textContent = 'Nivel 6 · Aperturas';
+  drawOpening();
+  var intro = { k: 'tip', who: 'Objetivo', t: 'Juegas con ' + (o.side === 'w' ? 'blancas' : 'negras') + '. Encuentra las jugadas de la apertura: el rival responderá con la línea principal.' };
+  if (o.side === 'b') { opponentReply([intro]); }
+  else renderCoach($('opCoach'), [intro, { k: 'info', who: 'Tu turno', t: hintText() }]);
+  window.scrollTo(0, 0);
+}
+
+function hintText() { return 'Encuentra la siguiente jugada de la apertura. Si dudas, usa Pista.'; }
+
+function expectedMove() { return bookMove(OP.g.s, curOpening().line[OP.i].s); }
+
+function drawOpening() {
+  var o = curOpening(), s = OP.g.s;
+  var moves = (OP.sel >= 0 && OP.state === 'play' && !OP.locked) ? OP.g.legal().filter(function (m) { return m.from === OP.sel; }) : [];
+  var hf = -1, ht = -1;
+  if (OP.hintStep >= 2 && OP.state === 'play' && !OP.locked) {
+    var em = expectedMove();
+    if (em) { hf = em.from; if (OP.hintStep >= 3) ht = em.to; }
+  }
+  OP.board.draw({
+    s: s, flip: o.side === 'b', sel: OP.sel, moves: moves, last: OP.last,
+    check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, hf: hf, ht: ht, pop: OP.pop
+  });
+  $('opStep').textContent = 'Jugada ' + Math.min(Math.ceil((OP.g.moves.length + 1) / 2), Math.ceil(o.line.length / 2)) + ' de ' + Math.ceil(o.line.length / 2);
+  $('opMoves').textContent = OP.g.sans.length ? fmtLine(R.START, OP.g.sans) : '';
+}
+
+function opTap(i) {
+  if (OP.locked || OP.state !== 'play') return;
+  var o = curOpening(), s = OP.g.s, p = s.b[i], mine = p && (R.isW(p) === (s.turn === 'w'));
+  var legal = OP.g.legal();
+  if (OP.sel >= 0) {
+    var cands = legal.filter(function (m) { return m.from === OP.sel && m.to === i; });
+    if (cands.length) { chooseMove(cands, OP.board.root.parentNode, opMove); return; }
+    if (mine) { OP.sel = OP.sel === i ? -1 : i; OP.notice = null; }
+    else OP.notice = whyIllegal(s, OP.sel, i);
+  } else if (mine) { OP.sel = i; OP.notice = null; }
+  drawOpening();
+  var items = [];
+  if (OP.notice) items.push({ k: 'warn', who: 'Ojo', t: OP.notice });
+  items.push({ k: 'info', who: 'Tu turno', t: hintText() });
+  renderCoach($('opCoach'), items);
+}
+
+function opMove(m) {
+  var o = curOpening(), want = o.line[OP.i], s = OP.g.s;
+  OP.sel = -1;
+  if (stripSan(R.san(s, m)) !== want.s) {
+    OP.errs++;
+    var good = expectedMove();
+    var reason = OP.errs >= 2 ? 'Fíjate en la pieza marcada.' : 'No es la jugada de esta apertura. Piensa en la idea: ' + want.t.charAt(0).toLowerCase() + want.t.slice(1);
+    if (OP.errs >= 2) OP.hintStep = Math.max(OP.hintStep, 2);
+    OP.notice = null;
+    drawOpening();
+    renderCoach($('opCoach'), [{ k: 'warn', who: 'Casi', t: reason }]);
+    return;
+  }
+  var reasonTxt = want.t;
+  OP.g.play(m);
+  OP.last = { from: m.from, to: m.to }; OP.pop = m.to; OP.i++; OP.hintStep = 0;
+  if (OP.i >= o.line.length) { finishOpening([{ k: 'good', who: R.san(s, m), t: reasonTxt }]); return; }
+  opponentReply([{ k: 'good', who: OP.g.sans[OP.g.sans.length - 1], t: reasonTxt }]);
+}
+
+function opponentReply(items) {
+  var o = curOpening(), tk = OP.token;
+  OP.locked = true;
+  drawOpening();
+  renderCoach($('opCoach'), items);
+  setTimeout(function () {
+    if (tk !== OP.token) return;
+    var line = o.line[OP.i], m = bookMove(OP.g.s, line.s);
+    OP.g.play(m);
+    OP.last = { from: m.from, to: m.to }; OP.pop = m.to; OP.i++; OP.locked = false;
+    var out = [{ k: 'info', who: 'Rival: ' + OP.g.sans[OP.g.sans.length - 1], t: line.t }];
+    if (OP.i >= o.line.length) { drawOpening(); finishOpening(out); return; }
+    out.push({ k: 'tip', who: 'Tu turno', t: hintText() });
+    drawOpening();
+    renderCoach($('opCoach'), items.slice(0, 1).concat(out));
+  }, 650);
+}
+
+function finishOpening(items) {
+  var o = curOpening();
+  OP.state = 'solved'; OP.locked = false;
+  var prev = prog.open[o.id];
+  if (prev === undefined || OP.errs < prev) prog.open[o.id] = OP.errs;
+  saveProg();
+  drawOpening();
+  items.push({ k: 'good', who: OP.errs === 0 ? '¡Línea completa sin errores!' : 'Línea completa', t: o.plan });
+  renderCoach($('opCoach'), items);
+  $('opNext').textContent = OP.idx + 1 < Openings.LIST.length ? 'Siguiente apertura' : 'Terminar';
+  $('opNext').hidden = false; $('opHint').disabled = true;
+}
+
+function opHint() {
+  if (OP.state !== 'play' || OP.locked) return;
+  OP.hintStep = Math.min(3, OP.hintStep + 1);
+  drawOpening();
+  var o = curOpening();
+  var txt = OP.hintStep === 1 ? o.line[OP.i].t : OP.hintStep === 2 ? 'Mira la pieza marcada.' : 'Va a la casilla marcada.';
+  renderCoach($('opCoach'), [{ k: 'tip', who: 'Pista ' + OP.hintStep + ' de 3', t: txt }]);
+}
+function opNext() {
+  if (OP.idx + 1 < Openings.LIST.length) { OP.idx++; loadOpening(); } else leaveOpening();
+}
+function leaveOpening() { OP.active = false; OP.token++; showTab('learn'); }
+
 /* ---------- Revisión de la partida ---------- */
 var CLS_LABEL = { blunder: 'Error grave', mistake: 'Error', inacc: 'Imprecisión', good: 'Buena jugada' };
 var RV = { active: false, snap: null, token: 0, done: false, total: 0, at: 0, res: null };
@@ -2791,10 +3086,10 @@ function leaveReview() {
 
 /* ---------- Navegación e inicio ---------- */
 function showTab(t) {
-  var views = ['v-learn', 'v-lesson', 'v-ending', 'v-tact', 'v-puzzle', 'v-review', 'v-play', 'v-guide'], i;
+  var views = ['v-learn', 'v-lesson', 'v-ending', 'v-opening', 'v-tact', 'v-puzzle', 'v-review', 'v-play', 'v-guide'], i;
   for (i = 0; i < views.length; i++) $(views[i]).hidden = true;
   var target;
-  if (t === 'learn') target = LS.active ? 'v-lesson' : EG.active ? 'v-ending' : 'v-learn';
+  if (t === 'learn') target = LS.active ? 'v-lesson' : EG.active ? 'v-ending' : OP.active ? 'v-opening' : 'v-learn';
   else if (t === 'tact') target = (PZ.active && PZ.tab === 'tact') ? 'v-puzzle' : 'v-tact';
   else if (t === 'play') target = (PZ.active && PZ.tab === 'play') ? 'v-puzzle' : RV.active ? 'v-review' : 'v-play';
   else target = 'v-' + t;
@@ -2804,6 +3099,7 @@ function showTab(t) {
 
   if (t === 'learn') {
     if (target === 'v-ending') $('topSub').textContent = 'Nivel 5 · Finales';
+    else if (target === 'v-opening') $('topSub').textContent = 'Nivel 6 · Aperturas';
     else if (LS.active) {
       var ls = currentLesson();
       $('topSub').textContent = 'Nivel ' + ls.lvl + ' · ' + levelOf(ls.lvl).name;
@@ -2845,6 +3141,16 @@ function init() {
     if (t) { openLesson(t.dataset.id); return; }
     var g = up(e.target, 'go', $('contCard'));
     if (g) showTab(g.dataset.go);
+  });
+  OP.board = makeBoard($('opBoard'));
+  OP.board.onTap = opTap;
+  $('opBack').addEventListener('click', leaveOpening);
+  $('opHint').addEventListener('click', opHint);
+  $('opReset').addEventListener('click', loadOpening);
+  $('opNext').addEventListener('click', opNext);
+  $('openList').addEventListener('click', function (e) {
+    var t = up(e.target, 'open', $('openList'));
+    if (t) openOpening(t.dataset.open);
   });
   EG.board = makeBoard($('egBoard'));
   EG.board.onTap = endTap;
