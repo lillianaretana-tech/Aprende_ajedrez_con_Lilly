@@ -1,0 +1,2002 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Ajedrez Paso a Paso</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Figtree:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Symbols+2&display=swap">
+<style>
+/* Diseño: una columna de libreta de estudio, tablero grande arriba y el entrenador debajo; navegación inferior de 3 pestañas. */
+:root {
+  --bg: #EDF1EE; --surface: #FFFFFF; --surface2: #F4F7F5; --ink: #12221E; --muted: #556862; --line: #D3DDD8;
+  --accent: #17695A; --accent-ink: #FFFFFF; --accent-soft: #D9EDE6;
+  --good: #17784A; --good-soft: #DAF0E3; --warn: #9A5200; --warn-soft: #FBEBD1;
+  --bad: #B02F2C; --bad-soft: #F9DAD8; --tip: #2C5FA8; --tip-soft: #DEE9F8;
+  --sq-l: #EBEFE3; --sq-d: #79A08A; --sel: rgba(243, 204, 59, .62); --last: rgba(244, 222, 92, .42); --hintc: #F29D1F;
+  --pw: #FFFFFF; --pw-line: #1B2925; --pb: #1B2623; --pb-line: #050807;
+  --display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --body: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  --glyph: "Noto Sans Symbols 2", "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", sans-serif;
+  --shadow: 0 1px 2px rgba(18, 34, 30, .07), 0 10px 28px rgba(18, 34, 30, .06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1614; --surface: #15221F; --surface2: #1B2B27; --ink: #E5EFEA; --muted: #96AAA2; --line: #2A3C36;
+    --accent: #59C3A3; --accent-ink: #06231B; --accent-soft: #1D3A32;
+    --good: #62D391; --good-soft: #173528; --warn: #F0B35C; --warn-soft: #3A2A12;
+    --bad: #FF8F8A; --bad-soft: #3F1A19; --tip: #8DB6F0; --tip-soft: #18283F;
+    --sq-l: #B5C3B0; --sq-d: #52786A; --sel: rgba(238, 200, 60, .6); --last: rgba(235, 214, 80, .35);
+    --pw: #FFFFFF; --pw-line: #0B1210; --pb: #121A18; --pb-line: #000000;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1614; --surface: #15221F; --surface2: #1B2B27; --ink: #E5EFEA; --muted: #96AAA2; --line: #2A3C36;
+  --accent: #59C3A3; --accent-ink: #06231B; --accent-soft: #1D3A32;
+  --good: #62D391; --good-soft: #173528; --warn: #F0B35C; --warn-soft: #3A2A12;
+  --bad: #FF8F8A; --bad-soft: #3F1A19; --tip: #8DB6F0; --tip-soft: #18283F;
+  --sq-l: #B5C3B0; --sq-d: #52786A; --sel: rgba(238, 200, 60, .6); --last: rgba(235, 214, 80, .35);
+  --pw: #FFFFFF; --pw-line: #0B1210; --pb: #121A18; --pb-line: #000000;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 28px rgba(0, 0, 0, .25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0; -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; line-height: 1.15; }
+p { margin: 0; }
+:focus-visible { outline: 3px solid var(--hintc); outline-offset: 2px; }
+
+#app { max-width: 520px; margin: 0 auto; padding-bottom: 96px; }
+
+/* Encabezado */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 0 10px; }
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.mark { width: 42px; height: 42px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--glyph); font-size: 28px; flex: none; }
+.brand h1 { font-size: 19px; font-weight: 700; letter-spacing: -.01em; }
+.brand p { font-size: 12.5px; color: var(--muted); }
+.ring { flex: none; font-family: var(--mono); font-size: 12.5px; font-weight: 500; padding: 5px 10px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-variant-numeric: tabular-nums; }
+
+/* Pestañas inferiores */
+.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center;
+  background: var(--surface); border-top: 1px solid var(--line);
+  padding: 6px max(16px, env(safe-area-inset-left, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-right, 0px));
+}
+.tabs .in { display: flex; width: 100%; max-width: 520px; gap: 6px; }
+.tabs button { flex: 1; border: 0; background: transparent; border-radius: 12px; padding: 7px 4px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; font-weight: 600; color: var(--muted); min-height: 52px; }
+.tabs button svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.tabs button.on { color: var(--accent); background: var(--accent-soft); }
+
+/* Piezas base */
+.view { display: flex; flex-direction: column; gap: 14px; }
+.view[hidden] { display: none; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; box-shadow: var(--shadow); }
+.lead { color: var(--muted); font-size: 14.5px; }
+.muted { color: var(--muted); }
+.label { font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 11px 14px; font-weight: 600; font-size: 14.5px; min-height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.big { width: 100%; min-height: 52px; font-size: 16px; }
+.btn.ghost { background: transparent; border-color: transparent; color: var(--accent); padding-inline: 6px; }
+.btn[disabled] { opacity: .45; cursor: default; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actions .btn { flex: 1 1 0; min-width: 96px; }
+
+/* Aprender */
+.cont { display: flex; flex-direction: column; gap: 10px; background: var(--accent); color: var(--accent-ink); border-radius: 18px; padding: 18px; border: 0; }
+.cont .label { color: inherit; opacity: .8; }
+.cont h2 { font-size: 23px; }
+.cont p { opacity: .92; font-size: 14.5px; }
+.cont .btn { background: var(--accent-ink); color: var(--accent); border-color: transparent; align-self: flex-start; }
+.bar { height: 6px; border-radius: 9px; background: color-mix(in srgb, currentColor 22%, transparent); overflow: hidden; }
+.bar i { display: block; height: 100%; background: currentColor; border-radius: 9px; }
+.level { display: flex; flex-direction: column; gap: 8px; }
+.level-h { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 6px 2px 0; }
+.level-h h3 { font-size: 18px; }
+.level-h .n { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.level-sub { font-size: 13.5px; color: var(--muted); margin-top: -4px; padding: 0 2px; }
+.lrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 11px 14px; min-height: 54px; }
+.lrow .dot { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-family: var(--mono); font-size: 12.5px; font-weight: 500; background: var(--surface2); color: var(--muted); border: 1.5px solid var(--line); }
+.lrow.done .dot { background: var(--good); border-color: var(--good); color: #fff; }
+.lrow.next { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+.lrow.next .dot { border-color: var(--accent); color: var(--accent); }
+.lrow .t { font-weight: 600; }
+.lrow .go { margin-left: auto; color: var(--muted); }
+.tipcard { background: var(--tip-soft); color: var(--ink); border-radius: 16px; padding: 14px 16px; display: flex; gap: 12px; align-items: flex-start; }
+.tipcard b { color: var(--tip); }
+
+/* Tablero */
+.board-wrap { position: relative; width: 100%; max-width: 520px; margin: 0 auto; }
+.board { width: 100%; aspect-ratio: 1; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1px var(--line), var(--shadow); container-type: inline-size; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.sq { position: relative; display: grid; place-items: center; border: 0; padding: 0; margin: 0; border-radius: 0; background: var(--sq-l); min-width: 0; min-height: 0; overflow: hidden; }
+.sq.d { background: var(--sq-d); }
+.sq.last::before, .sq.sel::before { content: ""; position: absolute; inset: 0; background: var(--last); }
+.sq.sel::before { background: var(--sel); }
+.sq.chk::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle, rgba(220, 38, 38, .85) 0, rgba(220, 38, 38, .35) 55%, transparent 75%); }
+.sq.hf::before, .sq.ht::before { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 .9cqw var(--hintc); background: rgba(242, 157, 31, .22); }
+.sq.wn::before { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 .9cqw rgba(214, 69, 65, .9); }
+.sq.goal::after, .sq.mv::after { content: ""; position: absolute; width: 32%; height: 32%; border-radius: 50%; background: rgba(18, 34, 30, .26); pointer-events: none; }
+.sq.goal::after { width: 44%; height: 44%; background: rgba(23, 105, 90, .0); box-shadow: inset 0 0 0 .9cqw var(--hintc); animation: pulse 1.6s ease-in-out infinite; }
+.sq.cap::after { content: ""; position: absolute; inset: 4%; border-radius: 50%; box-shadow: inset 0 0 0 .9cqw rgba(18, 34, 30, .3); pointer-events: none; }
+.sq .co { position: absolute; font-family: var(--mono); font-size: 2.3cqw; font-weight: 500; line-height: 1; pointer-events: none; opacity: .75; }
+.sq .co.f { right: 3%; bottom: 3%; }
+.sq .co.r { left: 4%; top: 4%; }
+.sq.l .co { color: var(--sq-d); }
+.sq.d .co { color: var(--sq-l); }
+.pc { position: relative; z-index: 1; display: block; font-family: var(--glyph); font-size: 9.2vw; font-size: 10.4cqw; line-height: 1; pointer-events: none; }
+.pc.w { color: var(--pw); -webkit-text-stroke: 1.4px var(--pw-line); paint-order: stroke fill; text-shadow: 0 1px 1px rgba(0, 0, 0, .28); }
+.pc.b { color: var(--pb); -webkit-text-stroke: .8px var(--pb-line); paint-order: stroke fill; }
+.pc.pop { animation: pop .18s ease-out; }
+@keyframes pop { from { transform: scale(.82); } to { transform: scale(1); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .pc.pop, .sq.goal::after { animation: none; } }
+
+.promo { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(8, 16, 14, .55); border-radius: 10px; }
+.promo .box { background: var(--surface); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 10px; align-items: center; box-shadow: var(--shadow); }
+.promo .row { display: flex; gap: 8px; }
+.promo button { width: 58px; height: 58px; border-radius: 12px; border: 1px solid var(--line); background: var(--sq-l); font-family: var(--glyph); font-size: 38px; line-height: 1; padding: 0; }
+.promo button.w { color: var(--pw); -webkit-text-stroke: 1.4px var(--pw-line); paint-order: stroke fill; }
+.promo button.b { color: var(--pb); }
+.promo .cap { font-size: 13.5px; color: var(--muted); }
+
+/* Lección y partida */
+.head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.head .step { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.view > h2 { font-size: 24px; }
+.coach { display: flex; flex-direction: column; gap: 8px; }
+.cmsg { display: flex; gap: 12px; align-items: flex-start; border-radius: 14px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); }
+.cmsg .ic { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--tip-soft); color: var(--tip); }
+.cmsg .tx { min-width: 0; flex: 1; }
+.cmsg .who { font-size: 11.5px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 1px; }
+.cmsg.good { background: var(--good-soft); border-color: transparent; } .cmsg.good .ic { background: var(--good); color: #fff; }
+.cmsg.warn { background: var(--warn-soft); border-color: transparent; } .cmsg.warn .ic { background: var(--warn); color: #fff; }
+.cmsg.bad { background: var(--bad-soft); border-color: transparent; } .cmsg.bad .ic { background: var(--bad); color: #fff; }
+.cmsg.info .ic, .cmsg.tip .ic { background: var(--tip-soft); color: var(--tip); }
+.coach > .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+.coach > .acts .btn { flex: 1 1 0; min-width: 130px; min-height: 44px; padding: 8px 12px; font-size: 14px; }
+.pbar { display: flex; align-items: center; gap: 10px; min-height: 30px; padding: 0 2px; }
+.pbar .who { font-weight: 700; font-size: 14px; }
+.pbar .caps { font-family: var(--glyph); font-size: 17px; line-height: 1; color: var(--muted); letter-spacing: -.04em; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+.pbar .mat { font-family: var(--mono); font-size: 12.5px; font-weight: 500; color: var(--good); font-variant-numeric: tabular-nums; }
+.pbar .think { font-size: 13px; color: var(--muted); }
+.moves { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 6px; scrollbar-width: thin; }
+.moves span { flex: none; font-family: var(--mono); font-size: 13px; padding: 4px 8px; border-radius: 8px; background: var(--surface); border: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.moves span.n { background: transparent; border-color: transparent; color: var(--muted); padding-inline: 2px; }
+
+/* Preparar partida */
+.seg { display: flex; gap: 6px; background: var(--surface2); border: 1px solid var(--line); border-radius: 14px; padding: 4px; }
+.seg button { flex: 1; border: 0; background: transparent; border-radius: 10px; padding: 10px 6px; font-weight: 600; min-height: 44px; color: var(--muted); }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.opts { display: flex; flex-direction: column; gap: 8px; }
+.opt { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--surface); border: 1.5px solid var(--line); border-radius: 14px; padding: 12px 14px; min-height: 58px; }
+.opt b { font-family: var(--display); font-size: 16px; }
+.opt span { font-size: 13.5px; color: var(--muted); }
+.opt.on { border-color: var(--accent); background: var(--accent-soft); }
+.field { display: flex; flex-direction: column; gap: 8px; }
+.switch { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; min-height: 52px; }
+.switch input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.switch small { display: block; color: var(--muted); font-size: 13px; }
+.over { display: flex; flex-direction: column; gap: 10px; text-align: left; }
+.over h3 { font-size: 22px; }
+.over .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+.over .stats span { background: var(--surface2); border-radius: 99px; padding: 4px 10px; font-size: 13px; font-family: var(--mono); }
+details.card { padding: 0; }
+details.card summary { list-style: none; cursor: pointer; padding: 15px 16px; font-family: var(--display); font-weight: 700; font-size: 17px; display: flex; justify-content: space-between; align-items: center; min-height: 52px; }
+details.card summary::-webkit-details-marker { display: none; }
+details.card summary::after { content: "+"; font-family: var(--mono); color: var(--accent); font-size: 20px; }
+details.card[open] summary::after { content: "\2212"; }
+details.card .body { padding: 0 16px 16px; display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; }
+details.card ul, details.card ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.vals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.vals div { background: var(--surface2); border-radius: 12px; padding: 10px 8px; text-align: center; }
+.vals .g { font-family: var(--glyph); font-size: 30px; line-height: 1.1; color: var(--ink); display: block; }
+.vals b { font-family: var(--mono); font-weight: 500; font-size: 13px; display: block; }
+.vals small { color: var(--muted); font-size: 12.5px; }
+code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6px; padding: 1px 6px; font-size: 13.5px; }
+#coachLog { max-height: 260px; overflow: auto; }
+
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">&#9822;</span>
+      <div>
+        <h1>Ajedrez Paso a Paso</h1>
+        <p id="topSub">Aprende jugando</p>
+      </div>
+    </div>
+    <span class="ring" id="progRing" title="Ejercicios completados">0/0</span>
+  </header>
+
+  <main>
+    <!-- Aprender -->
+    <section id="v-learn" class="view">
+      <div class="card cont" id="contCard"></div>
+      <div id="levels" class="view"></div>
+      <div class="tipcard" id="tipCard"></div>
+    </section>
+
+    <!-- Lección -->
+    <section id="v-lesson" class="view" hidden>
+      <div class="head">
+        <button class="btn ghost" id="lsBack" type="button">&larr; Lecciones</button>
+        <span class="step" id="lsStep"></span>
+      </div>
+      <h2 id="lsTitle"></h2>
+      <div class="board-wrap"><div id="lsBoard"></div></div>
+      <div class="coach" id="lsCoach" aria-live="polite"></div>
+      <div class="actions">
+        <button class="btn" id="lsHint" type="button">Pista</button>
+        <button class="btn" id="lsReset" type="button">Reiniciar</button>
+        <button class="btn primary" id="lsNext" type="button" hidden>Siguiente</button>
+      </div>
+    </section>
+
+    <!-- Jugar -->
+    <section id="v-play" class="view" hidden>
+      <div id="setup" class="view">
+        <h2>Practica jugando</h2>
+        <p class="lead">Juegas una partida completa. El entrenador comenta cada jugada, avisa de peligros y te ayuda con pistas.</p>
+        <div class="field">
+          <span class="label">Tu color</span>
+          <div class="seg" id="segColor">
+            <button type="button" data-v="w" class="on">Blancas</button>
+            <button type="button" data-v="b">Negras</button>
+            <button type="button" data-v="r">Al azar</button>
+          </div>
+        </div>
+        <div class="field">
+          <span class="label">Rival</span>
+          <div class="opts" id="segLevel">
+            <button type="button" class="opt on" data-v="1"><b>Principiante</b><span>Se equivoca seguido y a veces regala piezas.</span></button>
+            <button type="button" class="opt" data-v="2"><b>Aprendiz</b><span>Juega sólido pero no ve jugadas largas.</span></button>
+            <button type="button" class="opt" data-v="3"><b>Retador</b><span>Calcula varias jugadas. Cuesta ganarle.</span></button>
+          </div>
+        </div>
+        <label class="switch" for="coachOn">
+          <input type="checkbox" id="coachOn" checked>
+          <span>Entrenador activo<small>Comenta tus jugadas y avisa antes de que pierdas una pieza.</small></span>
+        </label>
+        <button class="btn primary big" id="startGame" type="button">Empezar partida</button>
+        <p class="muted" id="stats"></p>
+      </div>
+
+      <div id="game" class="view" hidden>
+        <div class="pbar"><span class="who" id="topWho">Rival</span><span class="caps" id="topCaps"></span><span class="mat" id="topMat"></span></div>
+        <div class="board-wrap"><div id="gBoard"></div></div>
+        <div class="pbar"><span class="who">Tú</span><span class="caps" id="botCaps"></span><span class="mat" id="botMat"></span><span class="think" id="think"></span></div>
+        <div class="coach" id="gCoach" aria-live="polite"></div>
+        <div class="card over" id="over" hidden></div>
+        <div class="actions">
+          <button class="btn" id="gHint" type="button">Pista</button>
+          <button class="btn" id="gUndo" type="button">Deshacer</button>
+          <button class="btn" id="gResign" type="button">Rendirme</button>
+        </div>
+        <div class="moves" id="moveList" aria-label="Jugadas"></div>
+        <details class="card">
+          <summary>Consejos anteriores</summary>
+          <div class="body"><ol id="coachLog"></ol></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- Guía -->
+    <section id="v-guide" class="view" hidden>
+      <h2>Guía rápida</h2>
+      <p class="lead">Para consultar cuando dudes. Todo lo que aparece aquí se practica en las lecciones.</p>
+
+      <details class="card" open>
+        <summary>Valor de las piezas</summary>
+        <div class="body">
+          <div class="vals">
+            <div><span class="g">&#9823;&#xFE0E;</span><b>1</b><small>Peón</small></div>
+            <div><span class="g">&#9822;</span><b>3</b><small>Caballo</small></div>
+            <div><span class="g">&#9821;</span><b>3</b><small>Alfil</small></div>
+            <div><span class="g">&#9820;</span><b>5</b><small>Torre</small></div>
+            <div><span class="g">&#9819;</span><b>9</b><small>Dama</small></div>
+            <div><span class="g">&#9818;</span><b>&infin;</b><small>Rey</small></div>
+          </div>
+          <p>Úsalo para decidir los cambios. Caballo por alfil es parejo; torre por caballo te hace perder 2 puntos; cambiar la dama por una torre y un peón casi nunca conviene.</p>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Cómo se mueve cada pieza</summary>
+        <div class="body">
+          <ul>
+            <li><b>Torre:</b> recto, en fila o columna.</li>
+            <li><b>Alfil:</b> en diagonal, siempre sobre el mismo color de casilla.</li>
+            <li><b>Dama:</b> recto o en diagonal, cuantas casillas quieras.</li>
+            <li><b>Caballo:</b> en L, y salta sobre otras piezas.</li>
+            <li><b>Rey:</b> una casilla en cualquier dirección, nunca a una casilla atacada.</li>
+            <li><b>Peón:</b> avanza recto, captura en diagonal. Desde su casilla inicial puede avanzar dos.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Principios de la apertura</summary>
+        <div class="body">
+          <ol>
+            <li>Controla el centro con peones, por ejemplo <code class="k">e4</code> o <code class="k">d4</code>.</li>
+            <li>Saca los caballos y los alfiles antes que la dama y las torres.</li>
+            <li>No muevas la misma pieza dos veces si tienes otras sin desarrollar.</li>
+            <li>Enroca pronto para proteger al rey.</li>
+            <li>Antes de cada jugada mira qué amenaza tu rival.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Jaque, mate y tablas</summary>
+        <div class="body">
+          <ul>
+            <li><b>Jaque:</b> el rey está atacado. Hay que salir moviendo el rey, bloqueando o capturando al atacante.</li>
+            <li><b>Jaque mate:</b> jaque sin salida. Termina la partida.</li>
+            <li><b>Ahogado:</b> sin jugadas legales pero sin jaque. Son tablas.</li>
+            <li><b>Otras tablas:</b> repetir la misma posición tres veces, no tener material para dar mate o 50 jugadas sin captura ni movimiento de peón.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="card">
+        <summary>Cómo leer las jugadas</summary>
+        <div class="body">
+          <ul>
+            <li><code class="k">e4</code> peón a e4. Las piezas llevan letra: <code class="k">N</code> caballo, <code class="k">B</code> alfil, <code class="k">R</code> torre, <code class="k">Q</code> dama, <code class="k">K</code> rey.</li>
+            <li><code class="k">x</code> es captura: <code class="k">Nxe5</code> el caballo captura en e5.</li>
+            <li><code class="k">+</code> jaque, <code class="k">#</code> jaque mate.</li>
+            <li><code class="k">O-O</code> enroque corto, <code class="k">O-O-O</code> enroque largo.</li>
+            <li><code class="k">e8=Q</code> el peón corona en dama.</li>
+          </ul>
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <nav class="tabs" aria-label="Secciones">
+    <div class="in" id="tabs">
+      <button type="button" data-tab="learn" class="on">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V6.5A2.5 2.5 0 0 1 6.5 4H20v13H6.5A2.5 2.5 0 0 0 4 19.5 2.5 2.5 0 0 0 6.5 22H20"/></svg>Aprender
+      </button>
+      <button type="button" data-tab="play">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m10 8.5 5 3.5-5 3.5z"/></svg>Jugar
+      </button>
+      <button type="button" data-tab="guide">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8v.01"/></svg>Guía
+      </button>
+    </div>
+  </nav>
+</div>
+
+<script>
+var Rules = (function () {
+  'use strict';
+  var FILES = 'abcdefgh';
+  var START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  var KN = [[1, 2], [2, 1], [-1, 2], [-2, 1], [1, -2], [2, -1], [-1, -2], [-2, -1]];
+  var KG = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  var RD = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  var BD = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+
+  function sqName(s) { return FILES[s & 7] + (8 - (s >> 3)); }
+  function sqIdx(n) { return (8 - (+n[1])) * 8 + FILES.indexOf(n[0]); }
+  function isW(p) { return p >= 'A' && p <= 'Z'; }
+  function other(c) { return c === 'w' ? 'b' : 'w'; }
+
+  function fromFEN(fen) {
+    var parts = fen.split(' ');
+    var b = [];
+    for (var i = 0; i < parts[0].length; i++) {
+      var ch = parts[0][i];
+      if (ch === '/') continue;
+      if (ch >= '1' && ch <= '8') { for (var k = 0; k < +ch; k++) b.push(''); } else b.push(ch);
+    }
+    var cs = parts[2] || '-';
+    var ep = parts[3] && parts[3] !== '-' ? sqIdx(parts[3]) : -1;
+    return {
+      b: b, turn: parts[1] || 'w',
+      c: { K: cs.indexOf('K') >= 0, Q: cs.indexOf('Q') >= 0, k: cs.indexOf('k') >= 0, q: cs.indexOf('q') >= 0 },
+      ep: ep, hm: +parts[4] || 0, fm: +parts[5] || 1
+    };
+  }
+
+  function toFEN(s) {
+    var out = '';
+    for (var r = 0; r < 8; r++) {
+      var e = 0;
+      for (var f = 0; f < 8; f++) {
+        var p = s.b[r * 8 + f];
+        if (!p) e++; else { if (e) { out += e; e = 0; } out += p; }
+      }
+      if (e) out += e;
+      if (r < 7) out += '/';
+    }
+    var cs = (s.c.K ? 'K' : '') + (s.c.Q ? 'Q' : '') + (s.c.k ? 'k' : '') + (s.c.q ? 'q' : '') || '-';
+    return out + ' ' + s.turn + ' ' + cs + ' ' + (s.ep >= 0 ? sqName(s.ep) : '-') + ' ' + s.hm + ' ' + s.fm;
+  }
+
+  // Casillas que atacan a sq las piezas de color "by". Con any=true devuelve solo true/false.
+  function attackers(s, sq, by, any) {
+    var res = [], b = s.b, r = sq >> 3, f = sq & 7, W = by === 'w', i, d, rr, ff, p;
+    var pr = W ? r + 1 : r - 1, P = W ? 'P' : 'p';
+    if (pr >= 0 && pr < 8) {
+      for (i = -1; i <= 1; i += 2) {
+        ff = f + i;
+        if (ff >= 0 && ff < 8 && b[pr * 8 + ff] === P) { if (any) return true; res.push(pr * 8 + ff); }
+      }
+    }
+    var N = W ? 'N' : 'n', K = W ? 'K' : 'k';
+    for (i = 0; i < 8; i++) {
+      rr = r + KN[i][0]; ff = f + KN[i][1];
+      if (rr >= 0 && rr < 8 && ff >= 0 && ff < 8 && b[rr * 8 + ff] === N) { if (any) return true; res.push(rr * 8 + ff); }
+      rr = r + KG[i][0]; ff = f + KG[i][1];
+      if (rr >= 0 && rr < 8 && ff >= 0 && ff < 8 && b[rr * 8 + ff] === K) { if (any) return true; res.push(rr * 8 + ff); }
+    }
+    var R = W ? 'R' : 'r', Q = W ? 'Q' : 'q', B = W ? 'B' : 'b';
+    for (d = 0; d < 4; d++) {
+      rr = r + RD[d][0]; ff = f + RD[d][1];
+      while (rr >= 0 && rr < 8 && ff >= 0 && ff < 8) {
+        p = b[rr * 8 + ff];
+        if (p) { if (p === R || p === Q) { if (any) return true; res.push(rr * 8 + ff); } break; }
+        rr += RD[d][0]; ff += RD[d][1];
+      }
+      rr = r + BD[d][0]; ff = f + BD[d][1];
+      while (rr >= 0 && rr < 8 && ff >= 0 && ff < 8) {
+        p = b[rr * 8 + ff];
+        if (p) { if (p === B || p === Q) { if (any) return true; res.push(rr * 8 + ff); } break; }
+        rr += BD[d][0]; ff += BD[d][1];
+      }
+    }
+    return any ? false : res;
+  }
+  function attacked(s, sq, by) { return attackers(s, sq, by, true); }
+
+  function kingSq(s, color) {
+    var K = color === 'w' ? 'K' : 'k';
+    for (var i = 0; i < 64; i++) if (s.b[i] === K) return i;
+    return -1;
+  }
+  function inCheck(s, color) {
+    var k = kingSq(s, color);
+    return k >= 0 && attacked(s, k, other(color));
+  }
+
+  function genPseudo(s) {
+    var out = [], b = s.b, W = s.turn === 'w', opp = other(s.turn), i, d, k;
+    function push(from, to, piece, cap, flag, promo) {
+      var m = { from: from, to: to, piece: piece };
+      if (cap) m.captured = cap;
+      if (flag) m.flag = flag;
+      if (promo) m.promo = promo;
+      out.push(m);
+    }
+    for (i = 0; i < 64; i++) {
+      var p = b[i];
+      if (!p || isW(p) !== W) continue;
+      var r = i >> 3, f = i & 7, t = p.toLowerCase(), rr, ff, to, tp;
+      if (t === 'p') {
+        var dir = W ? -1 : 1, startR = W ? 6 : 1, promR = W ? 0 : 7, r1 = r + dir;
+        if (r1 < 0 || r1 > 7) continue;
+        var addPawn = function (from, to2, cap) {
+          if ((to2 >> 3) === promR) { ['q', 'r', 'b', 'n'].forEach(function (pr) { push(from, to2, p, cap, '', pr); }); }
+          else push(from, to2, p, cap);
+        };
+        if (!b[r1 * 8 + f]) {
+          addPawn(i, r1 * 8 + f);
+          if (r === startR && !b[(r + 2 * dir) * 8 + f]) push(i, (r + 2 * dir) * 8 + f, p, null, 'd');
+        }
+        for (k = -1; k <= 1; k += 2) {
+          ff = f + k;
+          if (ff < 0 || ff > 7) continue;
+          to = r1 * 8 + ff; tp = b[to];
+          if (tp && isW(tp) !== W) addPawn(i, to, tp);
+          else if (!tp && to === s.ep) push(i, to, p, W ? 'p' : 'P', 'e');
+        }
+      } else if (t === 'n' || t === 'k') {
+        var offs = t === 'n' ? KN : KG;
+        for (k = 0; k < 8; k++) {
+          rr = r + offs[k][0]; ff = f + offs[k][1];
+          if (rr < 0 || rr > 7 || ff < 0 || ff > 7) continue;
+          to = rr * 8 + ff; tp = b[to];
+          if (!tp || isW(tp) !== W) push(i, to, p, tp);
+        }
+        if (t === 'k') {
+          var home = W ? 60 : 4;
+          if (i === home && !attacked(s, i, opp)) {
+            var R = W ? 'R' : 'r';
+            if ((W ? s.c.K : s.c.k) && !b[i + 1] && !b[i + 2] && b[i + 3] === R && !attacked(s, i + 1, opp) && !attacked(s, i + 2, opp))
+              push(i, i + 2, p, null, 'k');
+            if ((W ? s.c.Q : s.c.q) && !b[i - 1] && !b[i - 2] && !b[i - 3] && b[i - 4] === R && !attacked(s, i - 1, opp) && !attacked(s, i - 2, opp))
+              push(i, i - 2, p, null, 'q');
+          }
+        }
+      } else {
+        var dirs = t === 'r' ? RD : t === 'b' ? BD : RD.concat(BD);
+        for (d = 0; d < dirs.length; d++) {
+          rr = r + dirs[d][0]; ff = f + dirs[d][1];
+          while (rr >= 0 && rr < 8 && ff >= 0 && ff < 8) {
+            to = rr * 8 + ff; tp = b[to];
+            if (!tp) push(i, to, p);
+            else { if (isW(tp) !== W) push(i, to, p, tp); break; }
+            rr += dirs[d][0]; ff += dirs[d][1];
+          }
+        }
+      }
+    }
+    return out;
+  }
+
+  function makeMove(s, m) {
+    var b = s.b.slice(), W = s.turn === 'w', p = b[m.from], cap = b[m.to];
+    b[m.from] = '';
+    if (m.flag === 'e') b[m.to + (W ? 8 : -8)] = '';
+    b[m.to] = m.promo ? (W ? m.promo.toUpperCase() : m.promo) : p;
+    if (m.flag === 'k') { b[m.to - 1] = b[m.to + 1]; b[m.to + 1] = ''; }
+    if (m.flag === 'q') { b[m.to + 1] = b[m.to - 2]; b[m.to - 2] = ''; }
+    var c = { K: s.c.K, Q: s.c.Q, k: s.c.k, q: s.c.q };
+    if (p === 'K') { c.K = false; c.Q = false; }
+    if (p === 'k') { c.k = false; c.q = false; }
+    if (m.from === 63 || m.to === 63) c.K = false;
+    if (m.from === 56 || m.to === 56) c.Q = false;
+    if (m.from === 7 || m.to === 7) c.k = false;
+    if (m.from === 0 || m.to === 0) c.q = false;
+    return {
+      b: b, turn: W ? 'b' : 'w', c: c,
+      ep: m.flag === 'd' ? (m.from + m.to) / 2 : -1,
+      hm: (p.toLowerCase() === 'p' || cap || m.flag === 'e') ? 0 : s.hm + 1,
+      fm: s.fm + (W ? 0 : 1)
+    };
+  }
+
+  function genLegal(s) {
+    var me = s.turn;
+    return genPseudo(s).filter(function (m) { return !inCheck(makeMove(s, m), me); });
+  }
+
+  function san(s, m, legal) {
+    var base;
+    if (m.flag === 'k') base = 'O-O';
+    else if (m.flag === 'q') base = 'O-O-O';
+    else {
+      var t = m.piece.toLowerCase(), cap = !!m.captured;
+      if (t === 'p') base = (cap ? FILES[m.from & 7] + 'x' : '') + sqName(m.to) + (m.promo ? '=' + m.promo.toUpperCase() : '');
+      else {
+        base = t.toUpperCase();
+        var others = (legal || genLegal(s)).filter(function (x) { return x.from !== m.from && x.piece === m.piece && x.to === m.to; });
+        if (others.length) {
+          var sameFile = others.some(function (x) { return (x.from & 7) === (m.from & 7); });
+          var sameRank = others.some(function (x) { return (x.from >> 3) === (m.from >> 3); });
+          if (!sameFile) base += FILES[m.from & 7];
+          else if (!sameRank) base += (8 - (m.from >> 3));
+          else base += sqName(m.from);
+        }
+        base += (cap ? 'x' : '') + sqName(m.to);
+      }
+    }
+    var ns = makeMove(s, m);
+    if (inCheck(ns, ns.turn)) base += genLegal(ns).length ? '+' : '#';
+    return base;
+  }
+
+  function insufficient(s) {
+    var minors = 0, others = 0;
+    for (var i = 0; i < 64; i++) {
+      var p = s.b[i];
+      if (!p) continue;
+      var t = p.toLowerCase();
+      if (t === 'k') continue;
+      if (t === 'n' || t === 'b') minors++; else others++;
+    }
+    return others === 0 && minors <= 1;
+  }
+
+  // result: null si sigue la partida
+  function status(s, legalList) {
+    var legal = legalList || genLegal(s);
+    if (!legal.length) {
+      return inCheck(s, s.turn) ? { over: true, result: 'checkmate', winner: other(s.turn) } : { over: true, result: 'stalemate', winner: null };
+    }
+    if (insufficient(s)) return { over: true, result: 'insufficient', winner: null };
+    if (s.hm >= 100) return { over: true, result: 'fifty', winner: null };
+    return { over: false };
+  }
+
+  function find(s, from, to, promo, legalList) {
+    var list = legalList || genLegal(s);
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i];
+      if (m.from === from && m.to === to && (!m.promo || m.promo === (promo || 'q'))) return m;
+    }
+    return null;
+  }
+
+  function perft(s, depth) {
+    if (depth === 0) return 1;
+    var list = genLegal(s), n = 0;
+    if (depth === 1) return list.length;
+    for (var i = 0; i < list.length; i++) n += perft(makeMove(s, list[i]), depth - 1);
+    return n;
+  }
+
+  function Game(fen) {
+    this.states = [fromFEN(fen || START)];
+    this.moves = [];
+    this.sans = [];
+  }
+  Game.prototype = {
+    get s() { return this.states[this.states.length - 1]; },
+    legal: function () { return genLegal(this.s); },
+    play: function (m) {
+      var s = this.s, sn = san(s, m, genLegal(s));
+      this.states.push(makeMove(s, m));
+      this.moves.push(m);
+      this.sans.push(sn);
+      return sn;
+    },
+    undo: function () {
+      if (!this.moves.length) return null;
+      this.states.pop(); this.sans.pop();
+      return this.moves.pop();
+    },
+    repetitions: function () {
+      var key = function (st) { return toFEN(st).split(' ').slice(0, 4).join(' '); };
+      var k = key(this.s), n = 0;
+      for (var i = 0; i < this.states.length; i++) if (key(this.states[i]) === k) n++;
+      return n;
+    }
+  };
+
+  return {
+    START: START, sqName: sqName, sqIdx: sqIdx, isW: isW, other: other,
+    fromFEN: fromFEN, toFEN: toFEN, attackers: attackers, attacked: attacked,
+    kingSq: kingSq, inCheck: inCheck, genLegal: genLegal, genPseudo: genPseudo, makeMove: makeMove,
+    san: san, status: status, find: find, perft: perft, Game: Game
+  };
+})();
+if (typeof module !== 'undefined') module.exports = Rules;
+
+var Lessons = (function () {
+  'use strict';
+
+  var LEVELS = [
+    { n: 1, name: 'Las piezas', sub: 'Cómo se mueve y captura cada una' },
+    { n: 2, name: 'Jaque y mate', sub: 'Defender al rey y terminar la partida' },
+    { n: 3, name: 'Reglas especiales', sub: 'Enroque, coronación, al paso y tablas' },
+    { n: 4, name: 'Primeras tácticas', sub: 'Ganar material con ataques dobles y clavadas' }
+  ];
+
+  // goal.type: reach (llegar a una casilla), move (jugada exacta), mate, any (cualquier jugada legal)
+  var LIST = [
+    // ---------- Nivel 1 ----------
+    {
+      id: 'torre', lvl: 1, title: 'La torre',
+      fen: '7k/8/8/8/8/8/8/R3K3 w - - 0 1',
+      goal: { type: 'reach', to: ['a6'], piece: 'R' },
+      intro: 'La torre se mueve en línea recta, en horizontal o vertical, todas las casillas que quieras mientras no haya piezas en el camino. Lleva la torre a la casilla marcada.',
+      hint: 'Sube por la columna a hasta la fila 6.',
+      ok: 'Eso es. La torre recorrió cinco casillas en una sola jugada.',
+      wrong: 'Esa jugada es válida, pero busca la casilla marcada.'
+    },
+    {
+      id: 'alfil', lvl: 1, title: 'El alfil',
+      fen: '7k/8/8/8/8/8/8/2B1K3 w - - 0 1',
+      goal: { type: 'reach', to: ['f4'], piece: 'B' },
+      intro: 'El alfil se mueve en diagonal, tantas casillas como quieras. Siempre se queda en casillas del mismo color en el que empezó. Lleva el alfil a la casilla marcada.',
+      hint: 'Sube en diagonal hacia la derecha, pasando por d2 y e3.',
+      ok: 'Bien. Este alfil siempre pisará casillas oscuras.',
+      wrong: 'Esa jugada es válida, pero busca la casilla marcada.'
+    },
+    {
+      id: 'dama', lvl: 1, title: 'La dama',
+      fen: '7k/8/8/8/8/8/8/3QK3 w - - 0 1',
+      goal: { type: 'reach', to: ['d6', 'g4'], piece: 'Q' },
+      intro: 'La dama combina la torre y el alfil: se mueve recto o en diagonal. Es la pieza más poderosa. Lleva la dama a cualquiera de las casillas marcadas.',
+      hint: 'Una casilla está en línea recta hacia arriba y la otra en diagonal.',
+      ok: 'Muy bien. Recta o diagonal, la dama llega casi a cualquier parte.',
+      wrong: 'Esa jugada es válida, pero busca una de las casillas marcadas.'
+    },
+    {
+      id: 'caballo', lvl: 1, title: 'El caballo',
+      fen: '7k/8/8/8/8/8/8/1N2K3 w - - 0 1',
+      goal: { type: 'reach', to: ['a3', 'c3'], piece: 'N' },
+      intro: 'El caballo se mueve en L: dos casillas en una dirección y una hacia el lado. Es la única pieza que puede saltar sobre las demás. Lleva el caballo a una casilla marcada.',
+      hint: 'Dos casillas hacia arriba y una hacia el lado.',
+      ok: 'Así se mueve el caballo. Desde b1 tiene tres destinos posibles.',
+      wrong: 'Esa jugada es válida, pero busca una de las casillas marcadas.'
+    },
+    {
+      id: 'peon', lvl: 1, title: 'El peón',
+      fen: '7k/8/8/8/8/8/4P3/4K3 w - - 0 1',
+      goal: { type: 'reach', to: ['e4'], piece: 'P' },
+      intro: 'El peón avanza hacia adelante, nunca hacia atrás. En su primera jugada puede avanzar una o dos casillas. Avanza dos casillas para ocupar e4, una casilla central.',
+      hint: 'Toca el peón de e2 y elige e4.',
+      ok: 'Perfecto. Abrir con un peón central es la jugada más común.',
+      wrong: 'Esa jugada es válida, pero busca la casilla marcada.'
+    },
+    {
+      id: 'peon-captura', lvl: 1, title: 'El peón captura de lado',
+      fen: '7k/8/8/3p4/4P3/8/8/6K1 w - - 0 1',
+      goal: { type: 'reach', to: ['d5'], piece: 'P' },
+      intro: 'El peón avanza recto pero captura en diagonal, una casilla hacia adelante. Captura el peón negro.',
+      hint: 'El peón de e4 ataca d5 y f5.',
+      ok: 'Capturado. El peón negro sale del tablero y el tuyo ocupa su lugar.',
+      wrong: 'Esa jugada es válida, pero busca capturar el peón negro.'
+    },
+    {
+      id: 'torre-captura', lvl: 1, title: 'Capturar con la torre',
+      fen: '7k/8/8/3p4/8/8/8/3R2K1 w - - 0 1',
+      goal: { type: 'reach', to: ['d5'], piece: 'R' },
+      intro: 'Capturar es mover tu pieza a la casilla de una pieza rival, que sale del tablero. Las piezas capturan en la misma dirección en la que se mueven. Captura el peón con la torre.',
+      hint: 'El peón está en la misma columna que tu torre.',
+      ok: 'Bien. Una torre vale cinco peones, así que cuídala más que a un peón.',
+      wrong: 'Esa jugada es válida, pero busca capturar el peón.'
+    },
+
+    // ---------- Nivel 2 ----------
+    {
+      id: 'atacadas', lvl: 2, title: 'Casillas atacadas',
+      fen: '7k/8/8/8/8/8/r7/4K3 w - - 0 1',
+      goal: { type: 'any' },
+      intro: 'El rey nunca puede pisar una casilla atacada por una pieza rival. Aquí la torre negra controla toda la fila 2. Toca tu rey y mira adónde puede ir.',
+      hint: 'Solo quedan dos casillas seguras: d1 y f1.',
+      ok: 'Bien. Las casillas de la fila 2 estaban prohibidas para tu rey.',
+      wrong: ''
+    },
+    {
+      id: 'en-jaque', lvl: 2, title: 'Estás en jaque',
+      fen: '4r2k/8/8/8/8/8/8/4K3 w - - 0 1',
+      goal: { type: 'any' },
+      intro: 'Jaque significa que tu rey está atacado. Es obligatorio salir del jaque en esa misma jugada, de tres maneras: mover el rey, bloquear el ataque o capturar a la pieza que lo da. Aquí sal del jaque moviendo el rey.',
+      hint: 'La torre ataca por la columna e. Sal de esa columna.',
+      ok: 'Bien. Mover el rey es la salida más simple, pero no siempre existe.',
+      wrong: ''
+    },
+    {
+      id: 'bloquear', lvl: 2, title: 'Bloquear el jaque',
+      fen: '4r2k/8/8/8/2B5/8/8/4K3 w - - 0 1',
+      goal: { type: 'move', sans: ['Be2', 'Be6'] },
+      intro: 'Otra forma de salir del jaque es bloquear: poner una pieza entre el atacante y tu rey. Bloquea con el alfil, sin mover el rey.',
+      hint: 'El alfil de c4 puede llegar a e2 o a e6. Las dos casillas quedan entre la torre y tu rey.',
+      ok: 'Bloqueado. Ahora la torre negra no puede llegar a tu rey.',
+      wrong: 'Esa jugada también te salva del jaque, pero aquí se practica bloquear con el alfil.'
+    },
+    {
+      id: 'capturar-atacante', lvl: 2, title: 'Capturar al atacante',
+      fen: 'R3r2k/8/8/8/8/8/8/4K3 w - - 0 1',
+      goal: { type: 'reach', to: ['e8'], piece: 'R' },
+      intro: 'La tercera forma de salir del jaque es capturar la pieza que lo da. Captura la torre negra con tu torre.',
+      hint: 'Tu torre de a8 ve toda la fila 8 hasta la torre rival.',
+      ok: 'Capturada. Además, tu torre ahora da jaque al rey negro.',
+      wrong: 'Esa jugada es válida, pero aquí se practica capturar la torre que da jaque.'
+    },
+    {
+      id: 'mate-pasillo', lvl: 2, title: 'Mate del pasillo',
+      fen: '6k1/5ppp/8/8/8/8/8/R3K3 w - - 0 1',
+      goal: { type: 'mate' },
+      intro: 'Jaque mate: el rey está en jaque y no tiene escapatoria. La partida termina y gana quien lo da. Aquí el rey negro está encerrado por sus propios peones. Da jaque mate en una jugada.',
+      hint: 'Lleva la torre a la última fila, la 8.',
+      ok: 'Jaque mate. Los peones propios le quitaron las casillas de escape al rey.',
+      wrong: 'Eso no es mate. Busca una jugada que dé jaque sin dejar escapatoria al rey.'
+    },
+    {
+      id: 'mate-dama', lvl: 2, title: 'Mate con la dama',
+      fen: 'k7/8/1K6/8/8/8/7Q/8 w - - 0 1',
+      goal: { type: 'mate' },
+      intro: 'La dama apoyada por el rey da mate con facilidad. Tu rey ya controla a7 y b7. Encuentra el mate en una jugada.',
+      hint: 'Falta atacar la fila 8 desde el otro extremo.',
+      ok: 'Jaque mate. El rey ayudó a cerrar las casillas que la dama no cubría.',
+      wrong: 'Eso no es mate. Revisa las casillas a las que el rey negro todavía puede ir.'
+    },
+    {
+      id: 'mate-escalera', lvl: 2, title: 'Mate de la escalera',
+      fen: '7k/R7/8/8/8/8/8/1R2K3 w - - 0 1',
+      goal: { type: 'mate' },
+      intro: 'Dos torres dan mate sin ayuda del rey: una cierra una fila y la otra da jaque en la fila siguiente. Encuentra el mate en una jugada.',
+      hint: 'La torre de a7 ya cierra la fila 7. Da jaque en la fila 8.',
+      ok: 'Jaque mate. Cada torre cierra una fila, como los peldaños de una escalera.',
+      wrong: 'Eso no es mate. Una torre debe cerrar la fila 7 y la otra dar jaque en la 8.'
+    },
+
+    // ---------- Nivel 3 ----------
+    {
+      id: 'enroque-corto', lvl: 3, title: 'Enroque corto',
+      fen: 'k7/8/8/8/8/8/8/4K2R w K - 0 1',
+      goal: { type: 'move', sans: ['O-O'] },
+      intro: 'El enroque mueve el rey dos casillas hacia la torre y la torre salta al otro lado del rey. Pone al rey a salvo y activa la torre. Solo se puede si el rey y la torre no se han movido y no hay piezas entre ellos. Toca el rey y elige g1.',
+      hint: 'Mueve el rey de e1 a g1.',
+      ok: 'Enroque hecho. Es una sola jugada y cuenta como el movimiento del rey.',
+      wrong: 'Esa jugada es válida, pero aquí se practica el enroque corto.'
+    },
+    {
+      id: 'enroque-largo', lvl: 3, title: 'Enroque largo',
+      fen: '7k/8/8/8/8/8/8/R3K3 w Q - 0 1',
+      goal: { type: 'move', sans: ['O-O-O'] },
+      intro: 'Hacia el lado de la dama también se puede enrocar. El rey va dos casillas hacia la torre de la columna a y la torre salta a su lado. Toca el rey y elige c1.',
+      hint: 'Mueve el rey de e1 a c1.',
+      ok: 'Enroque largo hecho. Aquí hay tres casillas libres entre rey y torre, por eso se llama largo.',
+      wrong: 'Esa jugada es válida, pero aquí se practica el enroque largo.'
+    },
+    {
+      id: 'coronacion', lvl: 3, title: 'Coronación',
+      fen: '7k/4P3/8/8/8/8/8/4K3 w - - 0 1',
+      goal: { type: 'reach', to: ['e8'], piece: 'P' },
+      intro: 'Cuando un peón llega a la última fila se convierte en otra pieza, casi siempre en dama. Corona el peón.',
+      hint: 'Avanza el peón una casilla y elige la pieza.',
+      ok: 'Peón coronado. Un peón en la fila 7 vale casi tanto como una dama.',
+      wrong: 'Esa jugada es válida, pero aquí se practica coronar el peón.'
+    },
+    {
+      id: 'al-paso', lvl: 3, title: 'Captura al paso',
+      fen: '7k/8/8/3pP3/8/8/8/4K3 w - d6 0 1',
+      goal: { type: 'reach', to: ['d6'], piece: 'P' },
+      intro: 'Si un peón rival avanza dos casillas y queda a tu lado, puedes capturarlo como si hubiera avanzado solo una. Solo vale en la jugada inmediata. El peón negro acaba de jugar d7 a d5. Captúralo al paso.',
+      hint: 'Tu peón de e5 va en diagonal a d6, la casilla que el peón negro cruzó.',
+      ok: 'Captura al paso. Tu peón termina en d6 y el negro desaparece de d5.',
+      wrong: 'Esa jugada es válida, pero aquí se practica la captura al paso.'
+    },
+    {
+      id: 'ahogado', lvl: 3, title: 'Evita el ahogado',
+      fen: '7k/8/6K1/8/8/8/8/5Q2 w - - 0 1',
+      goal: { type: 'mate' },
+      intro: 'Ahogado: si el rival no tiene jugadas legales pero su rey no está en jaque, la partida termina en tablas. Cuando vas ganando, cuida de no ahogar. Da jaque mate en una jugada.',
+      hint: 'Mira cuántas casillas le quedan al rey negro después de tu jugada.',
+      ok: 'Jaque mate. Con ventaja siempre hay que comprobar que el rival tenga alguna jugada o esté en jaque.',
+      wrong: 'Eso no es mate. Revisa si el rey negro puede escapar.'
+    },
+
+    // ---------- Nivel 4 ----------
+    {
+      id: 'sin-defensa', lvl: 4, title: 'Pieza sin defensa',
+      fen: '4k3/8/8/3b4/8/8/8/3QK3 w - - 0 1',
+      goal: { type: 'reach', to: ['d5'], piece: 'Q' },
+      intro: 'Antes de capturar pregúntate: ¿está defendida esa pieza? Si ninguna pieza rival puede recapturar, la ganas gratis. Gana la pieza que está sin defensa.',
+      hint: 'El alfil negro está en tu columna y no tiene protección.',
+      ok: 'Pieza ganada sin darle nada a cambio.',
+      wrong: 'Esa jugada es válida, pero hay una pieza gratis en el tablero.'
+    },
+    {
+      id: 'captura-correcta', lvl: 4, title: 'La captura correcta',
+      fen: '4k3/3p4/8/8/8/1n6/8/3QK3 w - - 0 1',
+      goal: { type: 'reach', to: ['b3'], piece: 'Q' },
+      intro: 'No todo lo que se puede capturar conviene. Aquí una de las dos capturas de tu dama pierde la dama. Elige la correcta.',
+      hint: 'Fíjate quién protege cada pieza negra.',
+      ok: 'Bien elegido. El caballo no tenía ninguna pieza que lo protegiera.',
+      wrong: 'Esa jugada es válida, pero hay una captura mejor.',
+      wrongTo: { d7: 'El rey defiende ese peón. Si lo capturas, el rey recaptura y pierdes la dama.' }
+    },
+    {
+      id: 'horquilla-peon', lvl: 4, title: 'Horquilla de peón',
+      fen: '7k/8/8/2n1r3/8/3P4/8/6K1 w - - 0 1',
+      goal: { type: 'move', sans: ['d4'] },
+      intro: 'Una horquilla ataca dos piezas a la vez, y el rival solo puede salvar una. Con un solo avance del peón puedes atacar la torre y el caballo.',
+      hint: 'Un peón en d4 ataca c5 y e5.',
+      ok: 'Horquilla. El rival salva una pieza y tú ganas la otra.',
+      wrong: 'Esa jugada es válida, pero busca atacar las dos piezas negras a la vez.'
+    },
+    {
+      id: 'horquilla-caballo', lvl: 4, title: 'Horquilla de caballo',
+      fen: '2r3k1/8/8/3N4/8/8/8/6K1 w - - 0 1',
+      goal: { type: 'move', sans: ['Ne7+'] },
+      intro: 'Los caballos son expertos en horquillas porque atacan en forma de L. Busca la casilla desde la que el caballo da jaque y ataca la torre a la vez.',
+      hint: 'Desde e7 el caballo ataca g8 y c8.',
+      ok: 'Horquilla real. El rey tiene que moverse y la torre cae en la siguiente jugada.',
+      wrong: 'Esa jugada es válida, pero busca dar jaque y atacar la torre al mismo tiempo.'
+    },
+    {
+      id: 'clavada', lvl: 4, title: 'La clavada',
+      fen: '4k3/8/2n5/8/8/8/8/4KB2 w - - 0 1',
+      goal: { type: 'move', sans: ['Bb5'] },
+      intro: 'Una clavada inmoviliza una pieza porque detrás de ella hay otra más valiosa, aquí el rey. Clava el caballo al rey.',
+      hint: 'Coloca el alfil en la misma diagonal que el caballo y el rey.',
+      ok: 'Clavado. Si el caballo se mueve, el rey quedaría en jaque, así que no puede moverse.',
+      wrong: 'Esa jugada es válida, pero busca alinear el alfil con el caballo y el rey.'
+    }
+  ];
+
+  function strip(s) { return s.replace(/[+#]/g, ''); }
+
+  // R es el módulo Rules. s es la posición antes de la jugada m.
+  function goalMet(goal, s, m, R) {
+    switch (goal.type) {
+      case 'any': return true;
+      case 'reach':
+        return goal.to.indexOf(R.sqName(m.to)) >= 0 && (!goal.piece || m.piece.toUpperCase() === goal.piece);
+      case 'move': {
+        var sn = strip(R.san(s, m));
+        return goal.sans.some(function (x) { return strip(x) === sn; });
+      }
+      case 'mate':
+        return R.status(R.makeMove(s, m)).result === 'checkmate';
+    }
+    return false;
+  }
+
+  return { LEVELS: LEVELS, LIST: LIST, goalMet: goalMet };
+})();
+if (typeof module !== 'undefined') module.exports = Lessons;
+
+var AI = (function (R) {
+  'use strict';
+  var VAL = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 0 };
+  var INF = 1e9, MATE = 100000;
+  var deadline = 0, nodes = 0, timedOut = false;
+
+  function val(p) { return VAL[p.toLowerCase()]; }
+
+  function evalWhite(s) {
+    var b = s.b, i, p, t, nonPawn = 0, sc = 0;
+    for (i = 0; i < 64; i++) {
+      p = b[i];
+      if (!p) continue;
+      t = p.toLowerCase();
+      if (t !== 'p' && t !== 'k') nonPawn += VAL[t];
+    }
+    var endgame = nonPawn <= 1400;
+    for (i = 0; i < 64; i++) {
+      p = b[i];
+      if (!p) continue;
+      var w = R.isW(p), r = i >> 3, f = i & 7, pos = 0;
+      t = p.toLowerCase();
+      var cen = (3.5 - Math.abs(f - 3.5)) + (3.5 - Math.abs(r - 3.5));
+      var adv = w ? 6 - r : r - 1;
+      if (t === 'p') pos = adv * 7 + ((f === 3 || f === 4) ? adv * 3 : 0);
+      else if (t === 'n') pos = cen * 8;
+      else if (t === 'b') pos = cen * 5;
+      else if (t === 'r') pos = (w ? r === 1 : r === 6) ? 10 : 0;
+      else if (t === 'q') pos = cen * 1.5;
+      else if (t === 'k') {
+        if (endgame) pos = cen * 8;
+        else {
+          var back = w ? r === 7 : r === 0;
+          pos = back ? 20 + ((f >= 6 || f <= 2) ? 10 : 0) : -15 * (w ? 7 - r : r);
+        }
+      }
+      sc += (w ? 1 : -1) * (VAL[t] + pos);
+    }
+    return sc;
+  }
+  function evalSTM(s) { var v = evalWhite(s); return s.turn === 'w' ? v : -v; }
+
+  function order(moves) {
+    for (var i = 0; i < moves.length; i++) {
+      var m = moves[i];
+      m.o = (m.captured ? 1000 + 10 * val(m.captured) - val(m.piece) : 0) + (m.promo ? 800 : 0);
+    }
+    moves.sort(function (a, b) { return b.o - a.o; });
+  }
+
+  function quiesce(s, alpha, beta, qd) {
+    var stand = evalSTM(s);
+    if (qd === 0) return stand;
+    if (stand >= beta) return beta;
+    if (stand > alpha) alpha = stand;
+    var caps = R.genLegal(s).filter(function (m) { return m.captured || m.promo; });
+    order(caps);
+    for (var i = 0; i < caps.length; i++) {
+      var sc = -quiesce(R.makeMove(s, caps[i]), -beta, -alpha, qd - 1);
+      if (sc >= beta) return beta;
+      if (sc > alpha) alpha = sc;
+    }
+    return alpha;
+  }
+
+  function search(s, depth, alpha, beta, ply) {
+    if ((++nodes & 1023) === 0 && Date.now() > deadline) timedOut = true;
+    if (timedOut) return 0;
+    var moves = R.genLegal(s);
+    if (!moves.length) return R.inCheck(s, s.turn) ? -MATE + ply : 0;
+    if (s.hm >= 100) return 0;
+    if (depth === 0) return quiesce(s, alpha, beta, 3);
+    order(moves);
+    for (var i = 0; i < moves.length; i++) {
+      var sc = -search(R.makeMove(s, moves[i]), depth - 1, -beta, -alpha, ply + 1);
+      if (timedOut) return 0;
+      if (sc >= beta) return beta;
+      if (sc > alpha) alpha = sc;
+    }
+    return alpha;
+  }
+
+  // Profundización iterativa con límite de tiempo. Devuelve [{m, sc}] ordenado, del último nivel completo.
+  function rootSearch(s, maxDepth, ms, margin) {
+    var moves = R.genLegal(s), best = null;
+    if (!moves.length) return [];
+    order(moves);
+    deadline = Date.now() + ms; timedOut = false; nodes = 0;
+    for (var d = 1; d <= maxDepth; d++) {
+      var res = [], bestSc = -INF;
+      for (var i = 0; i < moves.length; i++) {
+        var alpha = bestSc - margin;
+        var child = R.makeMove(s, moves[i]);
+        var sc = -search(child, d - 1, -INF, -alpha, 1);
+        if (timedOut) break;
+        res.push({ m: moves[i], sc: sc });
+        if (sc > bestSc) bestSc = sc;
+      }
+      if (timedOut) break;
+      res.sort(function (a, b) { return b.sc - a.sc; });
+      best = res;
+      moves = res.map(function (x) { return x.m; });
+      if (bestSc > MATE - 100) break;
+    }
+    if (!best) {
+      best = moves.map(function (m) { return { m: m, sc: 0 }; });
+    }
+    return best;
+  }
+
+  var LEVELS = {
+    1: { depth: 2, ms: 150, margin: 160, random: 0.4 },
+    2: { depth: 3, ms: 450, margin: 35, random: 0 },
+    3: { depth: 5, ms: 1100, margin: 10, random: 0 }
+  };
+
+  function mateIn1(s, moves) {
+    for (var i = 0; i < moves.length; i++) {
+      if (R.status(R.makeMove(s, moves[i])).result === 'checkmate') return moves[i];
+    }
+    return null;
+  }
+
+  function choose(s, level) {
+    var moves = R.genLegal(s);
+    if (!moves.length) return null;
+    var cfg = LEVELS[level] || LEVELS[2];
+    var mate = mateIn1(s, moves);
+    if (mate && (level > 1 || Math.random() < 0.8)) return mate;
+    if (cfg.random && Math.random() < cfg.random) return moves[(Math.random() * moves.length) | 0];
+    var res = rootSearch(s, cfg.depth, cfg.ms, cfg.margin);
+    var top = res[0].sc;
+    // las jugadas que fallaron con la ventana estrecha traen una cota, no un valor real: se excluyen con ">" estricto
+    var pool = res.filter(function (x, i) { return i === 0 || x.sc > top - cfg.margin; });
+    return pool[(Math.random() * pool.length) | 0].m;
+  }
+
+  function best(s, ms) {
+    var res = rootSearch(s, 4, ms || 700, 0);
+    return res.length ? res[0] : null;
+  }
+
+  return { VAL: VAL, val: val, evalWhite: evalWhite, choose: choose, best: best, rootSearch: rootSearch, mateIn1: mateIn1 };
+})(typeof Rules !== 'undefined' ? Rules : require('./rules.js'));
+if (typeof module !== 'undefined') module.exports = AI;
+
+var Coach = (function (R, AI) {
+  'use strict';
+  var N = { p: 'peón', n: 'caballo', b: 'alfil', r: 'torre', q: 'dama', k: 'rey' };
+  var ART = { p: 'el peón', n: 'el caballo', b: 'el alfil', r: 'la torre', q: 'la dama', k: 'el rey' };
+  var START_COUNT = { p: 8, n: 2, b: 2, r: 2, q: 1 };
+  function name(p) { return N[p.toLowerCase()]; }
+  function art(p) { return ART[p.toLowerCase()]; }
+
+  function swap(s, color) { return { b: s.b, turn: color, c: s.c, ep: -1, hm: s.hm, fm: s.fm }; }
+
+  // Capturas rentables para el bando que mueve en s.
+  // net = valor de lo capturado menos lo que se pierde si el rival puede recapturar.
+  function gains(s) {
+    var best = {};
+    R.genLegal(s).forEach(function (m) {
+      if (!m.captured) return;
+      var child = R.makeMove(s, m);
+      var recapt = R.genLegal(child).some(function (x) { return x.to === m.to; });
+      var net = AI.val(m.captured) - (recapt ? AI.val(m.piece) : 0);
+      if (net > 0 && (!best[m.to] || net > best[m.to].net)) {
+        best[m.to] = { sq: m.to, from: m.from, victim: m.captured, attacker: m.piece, net: net, defended: recapt };
+      }
+    });
+    return Object.keys(best).map(function (k) { return best[k]; }).sort(function (a, b) { return b.net - a.net; });
+  }
+
+  // Piezas de "color" que el rival podría ganar si tuviera el turno.
+  function threatsAgainst(s, color) { return gains(swap(s, R.other(color))); }
+
+  function undeveloped(s, color) {
+    var homes = color === 'w' ? [[57, 'N'], [62, 'N'], [58, 'B'], [61, 'B']] : [[1, 'n'], [6, 'n'], [2, 'b'], [5, 'b']];
+    return homes.filter(function (h) { return s.b[h[0]] === h[1]; }).length;
+  }
+
+  function pieceCount(s) {
+    var n = 0;
+    for (var i = 0; i < 64; i++) if (s.b[i] && s.b[i].toLowerCase() !== 'p' && s.b[i].toLowerCase() !== 'k') n++;
+    return n;
+  }
+
+  var GENERAL = {
+    open: [
+      'Ocupa el centro con peones y saca los caballos antes que los alfiles.',
+      'Cada jugada de la apertura debería desarrollar una pieza nueva.',
+      'Evita mover la misma pieza dos veces seguidas mientras otras siguen en casa.',
+      'Piensa en enrocar pronto: el rey en el centro es un blanco.'
+    ],
+    mid: [
+      'Antes de cada jugada pregúntate: ¿qué amenaza mi rival? ¿Qué piezas mías están sin defensa?',
+      'Antes de capturar revisa si la pieza está defendida y qué valor tiene cada una.',
+      'Coloca las torres en columnas abiertas, donde no hay peones.',
+      'Si estás ganando material, cambia piezas. Si estás perdiendo, evítalo.'
+    ],
+    end: [
+      'En el final el rey se vuelve una pieza activa: acércalo al centro.',
+      'Un peón pasado, sin peones rivales que lo detengan, es una gran ventaja.',
+      'Cuando vayas ganando, vigila que no sea ahogado: el rival sin jugadas y sin jaque es tablas.'
+    ]
+  };
+
+  function phaseTip(s, color) {
+    var stage = s.fm <= 10 ? 'open' : (pieceCount(s) <= 6 ? 'end' : 'mid');
+    if (s.fm === 1) return 'Abre con un peón central, e4 o d4: controla el centro y libera a tus piezas.';
+    var canCastle = color === 'w' ? (s.c.K || s.c.Q) : (s.c.k || s.c.q);
+    if (stage === 'open' && canCastle && s.fm >= 4 && undeveloped(s, color) <= 1) return 'Ya desarrollaste tus piezas. Es buen momento para enrocar y poner al rey a salvo.';
+    var list = GENERAL[stage];
+    return list[s.fm % list.length];
+  }
+
+  // Comentarios sobre la jugada de la persona. prev: posición antes, next: después.
+  function review(prev, m, next) {
+    var me = prev.turn, out = [], t = m.piece.toLowerCase(), sqTo = R.sqName(m.to);
+    var st = R.status(next);
+    if (st.over && st.result === 'checkmate') return [{ k: 'good', t: 'Jaque mate. Ganaste la partida.' }];
+    if (st.over) return [];
+
+    var threats = threatsAgainst(next, me);
+    var hang = threats.filter(function (x) { return x.net >= 100; })[0];
+    var missed = gains(prev).filter(function (x) { return x.net >= 200 && !(m.captured && m.to === x.sq); })[0];
+
+    if (hang && hang.net >= 250) {
+      var wasMine = hang.sq === m.to;
+      out.push({
+        k: 'warn', undo: true, sq: hang.sq,
+        t: (wasMine ? 'Tu ' + name(hang.victim) + ' quedó en ' + R.sqName(hang.sq) : 'Tu ' + name(hang.victim) + ' en ' + R.sqName(hang.sq) + ' está en peligro') +
+          (hang.defended ? ': lo ataca ' + art(hang.attacker) + ', una pieza de menor valor.' : ' y no tiene defensa.') +
+          ' El rival puede ganar material. Puedes deshacer y buscar otra jugada.'
+      });
+      return out;
+    }
+    if (missed) {
+      out.push({
+        k: 'tip', sq: missed.sq,
+        t: 'Había una captura rentable: ' + art(missed.attacker) + ' podía tomar ' + art(missed.victim) + ' en ' + R.sqName(missed.sq) +
+          (missed.defended ? ', y aun con recaptura salías ganando.' : ', sin que el rival pudiera recapturar.')
+      });
+    }
+    if (hang && !missed) {
+      out.push({ k: 'tip', sq: hang.sq, t: 'Revisa tu ' + name(hang.victim) + ' en ' + R.sqName(hang.sq) + ': el rival podría atacarlo con ventaja. Puedes defenderlo o moverlo.' });
+    }
+    if (out.length) return out;
+
+    if (m.flag === 'k' || m.flag === 'q') return [{ k: 'good', t: 'Buen enroque: el rey queda protegido y la torre entra en juego.' }];
+    if (m.promo) return [{ k: 'good', t: 'Coronas el peón. Una pieza nueva cambia el rumbo de la partida.' }];
+    if (m.captured) {
+      var net = AI.val(m.captured) - (gains(next).some(function (x) { return x.sq === m.to; }) ? AI.val(m.piece) : 0);
+      if (net > 0) out.push({ k: 'good', t: 'Capturas ' + art(m.captured) + ' y ganas material.' });
+      else out.push({ k: 'info', t: 'Capturas ' + art(m.captured) + '. Es un cambio de piezas de valor parecido.' });
+    }
+    if (R.inCheck(next, next.turn)) out.push({ k: 'good', t: 'Das jaque: el rival debe responder a tu amenaza.' });
+    if (out.length) return out;
+
+    if (prev.fm <= 12) {
+      var file = m.to & 7, rank = 8 - (m.to >> 3);
+      var homeRank = me === 'w' ? 8 : 1;
+      if (t === 'p' && (file === 3 || file === 4)) return [{ k: 'good', t: 'Buen peón central. Controla el centro y abre caminos a tus piezas.' }];
+      if ((t === 'n' || t === 'b') && 8 - (m.from >> 3) === (me === 'w' ? 1 : 8)) return [{ k: 'good', t: 'Desarrollas una pieza menor. Sacar caballos y alfiles pronto es la clave de la apertura.' }];
+      if (t === 'q' && prev.fm <= 5) return [{ k: 'tip', t: 'Sacar la dama tan pronto puede costarte tiempo: el rival la atacará con piezas menores. Desarrolla antes caballos y alfiles.' }];
+      if (t === 'p' && (file === 0 || file === 7)) return [{ k: 'tip', t: 'Un peón de la banda ayuda poco al inicio. Un peón central o una pieza menor suele servir más.' }];
+      if (t === 'k' && ((me === 'w' && (prev.c.K || prev.c.Q)) || (me === 'b' && (prev.c.k || prev.c.q)))) return [{ k: 'tip', t: 'Al mover el rey pierdes el derecho a enrocar. Casi siempre es mejor enrocar.' }];
+      if (t === 'r' && prev.fm <= 8) return [{ k: 'tip', t: 'Las torres entran mejor al juego cuando hay columnas abiertas. Primero desarrolla las piezas menores.' }];
+    }
+    return [{ k: 'tip', t: phaseTip(next, me) }];
+  }
+
+  // Comentarios tras la jugada del rival. next: posición con turno de la persona.
+  function afterOpponent(prev, m, next) {
+    var me = next.turn, out = [], st = R.status(next);
+    if (st.over) return out;
+    var opp = gains(next).filter(function (x) { return x.net >= 100; })[0];
+    var thr = threatsAgainst(next, me).filter(function (x) { return x.net >= 100; })[0];
+    if (m.captured) out.push({ k: 'info', t: 'El rival capturó tu ' + name(m.captured) + ' en ' + R.sqName(m.to) + '.' });
+    if (R.inCheck(next, me)) {
+      out.push({ k: 'warn', t: 'Estás en jaque. Debes mover el rey, bloquear o capturar a la pieza que ataca.', sq: R.kingSq(next, me) });
+      return out;
+    }
+    if (opp) {
+      out.push({ k: 'good', sq: opp.sq, t: 'Oportunidad: ' + art(opp.attacker) + ' puede capturar ' + art(opp.victim) + ' en ' + R.sqName(opp.sq) + (opp.defended ? ' y la jugada te conviene.' : ' sin que puedan recapturar.') });
+    } else if (thr) {
+      out.push({ k: 'warn', sq: thr.sq, t: 'El rival amenaza tu ' + name(thr.victim) + ' en ' + R.sqName(thr.sq) + '. Defiéndelo, muévelo o contraataca.' });
+    }
+    return out;
+  }
+
+  function why(s, m) {
+    var child = R.makeMove(s, m), st = R.status(child), t = m.piece.toLowerCase();
+    if (st.result === 'checkmate') return 'da jaque mate';
+    if (m.flag === 'k' || m.flag === 'q') return 'enroca: pone al rey a salvo y activa la torre';
+    if (m.promo) return 'corona el peón';
+    if (m.captured) {
+      var g = gains(s).filter(function (x) { return x.sq === m.to && x.from === m.from; })[0];
+      return 'captura ' + art(m.captured) + (g ? (g.defended ? ' y el cambio te conviene' : ' sin que puedan recapturar') : '');
+    }
+    if (R.inCheck(child, child.turn)) return 'da jaque y obliga al rival a responder';
+    var th = threatsAgainst(s, s.turn).filter(function (x) { return x.sq === m.from; })[0];
+    if (th) return 'pone a salvo ' + art(m.piece) + ', que estaba amenazado';
+    var file = m.to & 7;
+    if (t === 'p' && (file === 3 || file === 4)) return 'ocupa el centro';
+    if ((t === 'n' || t === 'b') && s.fm <= 12) return 'desarrolla una pieza menor hacia una casilla activa';
+    return 'mejora la posición de ' + art(m.piece);
+  }
+
+  function hint(s) {
+    var b = AI.best(s, 800);
+    if (!b) return null;
+    return { m: b.m, from: b.m.from, to: b.m.to, san: R.san(s, b.m), reason: why(s, b.m) };
+  }
+
+  function material(s) {
+    var diff = 0;
+    for (var i = 0; i < 64; i++) {
+      var p = s.b[i];
+      if (p) diff += (R.isW(p) ? 1 : -1) * AI.val(p);
+    }
+    return Math.round(diff / 100);
+  }
+
+  // Piezas que perdió cada color, para mostrarlas como capturadas.
+  function lost(s) {
+    var cnt = { w: { p: 0, n: 0, b: 0, r: 0, q: 0 }, b: { p: 0, n: 0, b: 0, r: 0, q: 0 } };
+    for (var i = 0; i < 64; i++) {
+      var p = s.b[i];
+      if (!p) continue;
+      var t = p.toLowerCase();
+      if (t !== 'k') cnt[R.isW(p) ? 'w' : 'b'][t]++;
+    }
+    var out = { w: [], b: [] };
+    ['w', 'b'].forEach(function (c) {
+      ['q', 'r', 'b', 'n', 'p'].forEach(function (t) {
+        for (var k = START_COUNT[t] - cnt[c][t]; k > 0; k--) out[c].push(t);
+      });
+    });
+    return out;
+  }
+
+  return { review: review, afterOpponent: afterOpponent, hint: hint, phaseTip: phaseTip, material: material, lost: lost, gains: gains, name: name, art: art };
+})(typeof Rules !== 'undefined' ? Rules : require('./rules.js'), typeof AI !== 'undefined' ? AI : require('./ai.js'));
+if (typeof module !== 'undefined') module.exports = Coach;
+
+(function () {
+"use strict";
+/* ---------- Utilidades de interfaz ---------- */
+var R = Rules, L = Lessons;
+var GLYPH = { k: '♚', q: '♛', r: '♜', b: '♝', n: '♞', p: '♟︎' };
+var PN = { p: 'peón', n: 'caballo', b: 'alfil', r: 'torre', q: 'dama', k: 'rey' };
+var FILES = 'abcdefgh';
+
+function $(id) { return document.getElementById(id); }
+function esc(t) {
+  return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; });
+}
+// Sube por los padres hasta encontrar un elemento con data-<attr>
+function up(t, attr, stop) {
+  while (t && t !== stop) {
+    if (t.dataset && t.dataset[attr] !== undefined) return t;
+    t = t.parentNode;
+  }
+  return null;
+}
+
+/* ---------- Progreso guardado en este dispositivo ---------- */
+var KEY = 'ajedrez-paso-a-paso-v1';
+var prog = { done: {}, games: { w: 0, l: 0, d: 0 } };
+try {
+  var raw = localStorage.getItem(KEY);
+  if (raw) {
+    var parsed = JSON.parse(raw);
+    if (parsed && parsed.done) prog = parsed;
+    if (!prog.games) prog.games = { w: 0, l: 0, d: 0 };
+  }
+} catch (e) { /* sin almacenamiento: la app sigue funcionando */ }
+function saveProg() { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) { /* ignorar */ } }
+
+/* ---------- Tablero ---------- */
+function makeBoard(root) {
+  var b = { root: root, onTap: null };
+  root.classList.add('board');
+  root.setAttribute('aria-label', 'Tablero de ajedrez');
+  for (var k = 0; k < 64; k++) {
+    var d = document.createElement('button');
+    d.type = 'button';
+    d.className = 'sq';
+    root.appendChild(d);
+  }
+  root.addEventListener('click', function (e) {
+    var t = up(e.target, 'i', root);
+    if (t && b.onTap) b.onTap(+t.dataset.i);
+  });
+  // v: { s, flip, sel, moves, last, check, goal, hf, ht, warn, pop }
+  b.draw = function (v) {
+    var s = v.s, kids = root.children, dests = {}, k2;
+    (v.moves || []).forEach(function (m) { dests[m.to] = m.captured ? 'cap' : 'mv'; });
+    for (k2 = 0; k2 < 64; k2++) {
+      var bi = v.flip ? 63 - k2 : k2, el = kids[k2], p = s.b[bi], r = bi >> 3, f = bi & 7;
+      var cls = 'sq ' + (((r + f) & 1) ? 'd' : 'l');
+      if (v.sel === bi) cls += ' sel';
+      if (v.last && (v.last.from === bi || v.last.to === bi)) cls += ' last';
+      if (v.check === bi) cls += ' chk';
+      if (dests[bi]) cls += ' ' + dests[bi];
+      if (v.goal && v.goal.indexOf(bi) >= 0) cls += ' goal';
+      if (v.hf === bi) cls += ' hf';
+      if (v.ht === bi) cls += ' ht';
+      if (v.warn && v.warn.indexOf(bi) >= 0) cls += ' wn';
+      el.className = cls;
+      el.dataset.i = bi;
+      var html = '';
+      if (p) html += '<span class="pc ' + (R.isW(p) ? 'w' : 'b') + (v.pop === bi ? ' pop' : '') + '">' + GLYPH[p.toLowerCase()] + '</span>';
+      if ((k2 >> 3) === 7) html += '<span class="co f">' + FILES[f] + '</span>';
+      if ((k2 & 7) === 0) html += '<span class="co r">' + (8 - r) + '</span>';
+      el.innerHTML = html;
+      el.setAttribute('aria-label', R.sqName(bi) + (p ? ', ' + PN[p.toLowerCase()] + (R.isW(p) ? ' blanco' : ' negro') : ''));
+    }
+  };
+  return b;
+}
+
+// Elegir la pieza al coronar. cb(null) si se cancela.
+function askPromo(wrap, color, cb) {
+  var ov = document.createElement('div');
+  ov.className = 'promo';
+  var row = '';
+  ['q', 'r', 'b', 'n'].forEach(function (t) {
+    row += '<button type="button" class="' + color + '" data-p="' + t + '" aria-label="' + PN[t] + '">' + GLYPH[t] + '</button>';
+  });
+  ov.innerHTML = '<div class="box"><div class="cap">Elige la nueva pieza</div><div class="row">' + row + '</div></div>';
+  ov.addEventListener('click', function (e) {
+    var t = up(e.target, 'p', ov);
+    wrap.removeChild(ov);
+    cb(t ? t.dataset.p : null);
+  });
+  wrap.appendChild(ov);
+}
+
+// Si la jugada es una coronación pide la pieza; si no, la juega directo.
+function chooseMove(cands, wrap, cb) {
+  if (cands[0].promo) {
+    askPromo(wrap, R.isW(cands[0].piece) ? 'w' : 'b', function (pr) {
+      if (!pr) return;
+      for (var i = 0; i < cands.length; i++) if (cands[i].promo === pr) { cb(cands[i]); return; }
+    });
+  } else cb(cands[0]);
+}
+
+// Explica por qué una jugada no se puede hacer
+function whyIllegal(s, from, to) {
+  var p = s.b[from];
+  if (!p) return '';
+  var t = p.toLowerCase();
+  var pseudo = R.genPseudo(s).some(function (m) { return m.from === from && m.to === to; });
+  if (pseudo) {
+    if (t === 'k') return 'Esa casilla está atacada: el rey no puede ir ahí.';
+    if (R.inCheck(s, s.turn)) return 'Tu rey está en jaque y esa jugada no lo resuelve.';
+    return 'Esa pieza está clavada: si se mueve, tu rey quedaría en jaque.';
+  }
+  return (t === 'q' || t === 'r' ? 'Esa ' : 'Ese ') + PN[t] + ' no se mueve así.';
+}
+
+/* ---------- Tarjetas del entrenador ---------- */
+var IC = { good: '✓', warn: '!', bad: '!', tip: 'i', info: 'i' };
+// items: [{ k, t, who }], acts: [{ label, primary, fn }]
+function renderCoach(root, items, acts) {
+  var html = '';
+  items.forEach(function (c) {
+    html += '<div class="cmsg ' + c.k + '"><span class="ic" aria-hidden="true">' + (IC[c.k] || 'i') + '</span><div class="tx">' +
+      (c.who ? '<span class="who">' + esc(c.who) + '</span>' : '') + '<span>' + esc(c.t) + '</span></div></div>';
+  });
+  root.innerHTML = html;
+  if (acts && acts.length) {
+    var row = document.createElement('div');
+    row.className = 'acts';
+    acts.forEach(function (a) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'btn' + (a.primary ? ' primary' : '');
+      b.textContent = a.label;
+      b.addEventListener('click', a.fn);
+      row.appendChild(b);
+    });
+    root.appendChild(row);
+  }
+}
+
+var TABS = {
+  learn: 'Aprende jugando',
+  play: 'Practica con entrenador',
+  guide: 'Consulta rápida'
+};
+
+/* ---------- Aprender: lista de lecciones y ejercicio ---------- */
+var LS = { idx: 0, g: null, sel: -1, locked: false, solved: false, hintStep: 0, last: null, pop: -1, notice: null, token: 0, active: false, board: null };
+
+var TIPS = [
+  'Antes de cada jugada hazte dos preguntas: ¿qué quiere hacer mi rival? y ¿qué piezas mías están sin defensa?',
+  'En la apertura, controla el centro y saca los caballos antes que los alfiles.',
+  'Enroca pronto. Un rey en el centro es un blanco fácil.',
+  'No muevas dos veces la misma pieza en la apertura si otras siguen en casa.',
+  'Antes de capturar, comprueba si esa pieza está defendida.',
+  'Cambiar piezas te conviene cuando vas ganando material.',
+  'En los finales, tu rey es una pieza de ataque: llévalo al centro.'
+];
+
+function doneCount() { return L.LIST.filter(function (l) { return prog.done[l.id]; }).length; }
+function nextLessonIdx() {
+  for (var i = 0; i < L.LIST.length; i++) if (!prog.done[L.LIST[i].id]) return i;
+  return -1;
+}
+function levelOf(n) { return L.LEVELS[n - 1]; }
+
+function renderLearn() {
+  var total = L.LIST.length, done = doneCount(), nx = nextLessonIdx();
+  $('progRing').textContent = done + '/' + total;
+
+  var pct = Math.round(done * 100 / total);
+  var bar = '<div class="bar" aria-hidden="true"><i style="width:' + pct + '%"></i></div>';
+  if (nx >= 0) {
+    var ls = L.LIST[nx];
+    $('contCard').innerHTML = '<span class="label">' + (done ? 'Continúa tu recorrido' : 'Empieza aquí') + ' · Nivel ' + ls.lvl + '</span>' +
+      '<h2>' + esc(ls.title) + '</h2><p>' + esc(levelOf(ls.lvl).sub) + '. ' + done + ' de ' + total + ' ejercicios completados.</p>' + bar +
+      '<button class="btn" type="button" data-id="' + ls.id + '">' + (done ? 'Continuar' : 'Empezar') + '</button>';
+  } else {
+    $('contCard').innerHTML = '<span class="label">Recorrido completo</span><h2>Terminaste los 4 niveles</h2>' +
+      '<p>Ya conoces las piezas, el jaque mate y las primeras tácticas. Ahora ponlo a prueba en una partida.</p>' + bar +
+      '<button class="btn" type="button" data-go="play">Jugar una partida</button>';
+  }
+
+  var html = '';
+  L.LEVELS.forEach(function (lv) {
+    var items = L.LIST.filter(function (l) { return l.lvl === lv.n; });
+    var d = items.filter(function (l) { return prog.done[l.id]; }).length;
+    html += '<div class="level"><div class="level-h"><h3>Nivel ' + lv.n + ' · ' + esc(lv.name) + '</h3><span class="n">' + d + '/' + items.length + '</span></div>' +
+      '<p class="level-sub">' + esc(lv.sub) + '</p>';
+    items.forEach(function (l) {
+      var i = L.LIST.indexOf(l), isDone = !!prog.done[l.id], isNext = i === nx;
+      html += '<button type="button" class="lrow' + (isDone ? ' done' : '') + (isNext ? ' next' : '') + '" data-id="' + l.id + '">' +
+        '<span class="dot">' + (isDone ? '✓' : (i + 1)) + '</span><span class="t">' + esc(l.title) + '</span><span class="go" aria-hidden="true">›</span></button>';
+    });
+    html += '</div>';
+  });
+  $('levels').innerHTML = html;
+
+  var tip = TIPS[Math.floor(Date.now() / 864e5) % TIPS.length];
+  $('tipCard').innerHTML = '<span aria-hidden="true">♞</span><div><b>Consejo del día</b><br>' + esc(tip) + '</div>';
+}
+
+function currentLesson() { return L.LIST[LS.idx]; }
+
+function openLesson(id) {
+  var idx = -1;
+  for (var i = 0; i < L.LIST.length; i++) if (L.LIST[i].id === id) idx = i;
+  if (idx < 0) return;
+  LS.idx = idx;
+  LS.active = true;
+  showTab('learn');
+  loadLesson();
+}
+
+function loadLesson() {
+  var ls = currentLesson();
+  LS.token++;
+  LS.g = new R.Game(ls.fen);
+  LS.sel = -1; LS.locked = false; LS.solved = false; LS.hintStep = 0; LS.last = null; LS.pop = -1; LS.notice = null;
+  $('lsTitle').textContent = ls.title;
+  $('lsStep').textContent = 'Ejercicio ' + (LS.idx + 1) + ' de ' + L.LIST.length;
+  $('lsNext').hidden = true;
+  $('lsHint').disabled = false;
+  $('topSub').textContent = 'Nivel ' + ls.lvl + ' · ' + levelOf(ls.lvl).name;
+  drawLesson();
+  renderCoach($('lsCoach'), [{ k: 'tip', who: 'Objetivo', t: ls.intro }]);
+  window.scrollTo(0, 0);
+}
+
+function lessonSolutions() {
+  var ls = currentLesson(), s = LS.g.s;
+  return LS.g.legal().filter(function (m) { return L.goalMet(ls.goal, s, m, R); });
+}
+
+function drawLesson() {
+  var ls = currentLesson(), s = LS.g.s;
+  var moves = LS.sel >= 0 ? LS.g.legal().filter(function (m) { return m.from === LS.sel; }) : [];
+  var goal = null, hf = -1, ht = -1;
+  if (ls.goal.type === 'reach' && !LS.solved) goal = ls.goal.to.map(R.sqIdx);
+  if (LS.hintStep >= 1 && !LS.solved && !LS.locked) {
+    var sol = lessonSolutions()[0];
+    if (sol) { hf = sol.from; if (LS.hintStep >= 2) ht = sol.to; }
+  }
+  LS.board.draw({
+    s: s, flip: false, sel: LS.sel, moves: moves, last: LS.last,
+    check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, goal: goal, hf: hf, ht: ht, pop: LS.pop
+  });
+}
+
+function lessonCoachItems() {
+  var ls = currentLesson(), items = [];
+  if (LS.notice) items.push({ k: 'warn', who: 'Ojo', t: LS.notice });
+  items.push({ k: 'tip', who: 'Objetivo', t: ls.intro });
+  return items;
+}
+
+function lessonTap(i) {
+  if (LS.locked || LS.solved) return;
+  var s = LS.g.s, p = s.b[i], mine = p && (R.isW(p) === (s.turn === 'w'));
+  var legal = LS.g.legal();
+  if (LS.sel >= 0) {
+    var cands = legal.filter(function (m) { return m.from === LS.sel && m.to === i; });
+    if (cands.length) {
+      chooseMove(cands, LS.board.root.parentNode, lessonMove);
+      return;
+    }
+    if (mine) {
+      LS.sel = LS.sel === i ? -1 : i;
+      LS.notice = null;
+    } else {
+      LS.notice = whyIllegal(s, LS.sel, i);
+    }
+  } else if (mine) {
+    LS.sel = i;
+    LS.notice = null;
+  }
+  drawLesson();
+  renderCoach($('lsCoach'), lessonCoachItems());
+}
+
+function lessonMove(m) {
+  var ls = currentLesson(), before = LS.g.s;
+  var met = L.goalMet(ls.goal, before, m, R);
+  LS.g.play(m);
+  LS.sel = -1; LS.last = { from: m.from, to: m.to }; LS.pop = m.to; LS.notice = null;
+  var st = R.status(LS.g.s);
+
+  if (met) {
+    var wasLevelDone = L.LIST.filter(function (l) { return l.lvl === ls.lvl; }).every(function (l) { return prog.done[l.id]; });
+    LS.solved = true;
+    prog.done[ls.id] = true;
+    saveProg();
+    $('progRing').textContent = doneCount() + '/' + L.LIST.length;
+    var text = ls.ok;
+    if (m.promo && m.promo !== 'q') text += ' Elegiste ' + (m.promo === 'n' ? 'caballo' : m.promo === 'r' ? 'torre' : 'alfil') + '; casi siempre conviene la dama.';
+    var items = [{ k: 'good', who: 'Muy bien', t: text }];
+    var levelDone = L.LIST.filter(function (l) { return l.lvl === ls.lvl; }).every(function (l) { return prog.done[l.id]; });
+    if (levelDone && !wasLevelDone) items.push({ k: 'info', who: 'Nivel completo', t: 'Terminaste el nivel ' + ls.lvl + ': ' + levelOf(ls.lvl).name + '.' });
+    drawLesson();
+    renderCoach($('lsCoach'), items);
+    var last = LS.idx >= L.LIST.length - 1;
+    $('lsNext').textContent = last ? 'Ir a jugar' : 'Siguiente ejercicio';
+    $('lsNext').hidden = false;
+    $('lsHint').disabled = true;
+    return;
+  }
+
+  // Jugada válida pero que no cumple el objetivo: se muestra un momento y se deshace
+  var msg = ls.wrongTo && ls.wrongTo[R.sqName(m.to)];
+  if (!msg && st.result === 'stalemate') msg = 'Eso es ahogado: el rey negro no tiene jugadas y no está en jaque, así que son tablas. Busca otra jugada.';
+  if (!msg && st.result === 'checkmate') msg = ls.wrong;
+  if (!msg) msg = ls.wrong || 'Esa jugada es válida, pero no cumple el objetivo.';
+  LS.locked = true;
+  var tok = ++LS.token;
+  drawLesson();
+  renderCoach($('lsCoach'), [{ k: 'warn', who: 'Casi', t: msg }, { k: 'tip', who: 'Objetivo', t: ls.intro }]);
+  setTimeout(function () {
+    if (tok !== LS.token) return;
+    LS.g.undo();
+    LS.last = null; LS.pop = -1; LS.locked = false; LS.notice = null;
+    drawLesson();
+    renderCoach($('lsCoach'), [{ k: 'warn', who: 'Inténtalo otra vez', t: msg }, { k: 'tip', who: 'Objetivo', t: ls.intro }]);
+  }, 1400);
+}
+
+function lessonHint() {
+  if (LS.locked || LS.solved) return;
+  var ls = currentLesson();
+  LS.hintStep = Math.min(2, LS.hintStep + 1);
+  var items = [];
+  if (LS.hintStep === 1) {
+    items.push({ k: 'tip', who: 'Pista 1 de 2', t: ls.hint + ' Pulsa Pista otra vez para ver la jugada.' });
+  } else {
+    var sol = lessonSolutions()[0];
+    if (sol) items.push({ k: 'tip', who: 'Pista 2 de 2', t: 'Mueve ' + Coach.art(sol.piece) + ' de ' + R.sqName(sol.from) + ' a ' + R.sqName(sol.to) + '.' });
+  }
+  items.push({ k: 'tip', who: 'Objetivo', t: ls.intro });
+  drawLesson();
+  renderCoach($('lsCoach'), items);
+}
+
+function lessonNext() {
+  if (LS.idx >= L.LIST.length - 1) {
+    LS.active = false;
+    showTab('play');
+    return;
+  }
+  LS.idx++;
+  loadLesson();
+}
+
+function leaveLesson() {
+  LS.token++;
+  LS.active = false;
+  showTab('learn');
+}
+
+/* ---------- Jugar: partida contra el rival con entrenador ---------- */
+var CFG = { color: 'w', level: 1 };
+var LVN = { 1: 'Principiante', 2: 'Aprendiz', 3: 'Retador' };
+var GM = {
+  g: null, color: 'w', level: 1, coachOn: true, sel: -1, busy: false, pending: false, over: false,
+  last: null, pop: -1, hint: null, hints: 0, feedUser: [], feed: [], notice: null, log: [], token: 0,
+  board: null, warn: null, resignArm: false, resignTimer: 0
+};
+
+function canPlay() { return !!GM.g && !GM.over && !GM.busy && !GM.pending && GM.g.s.turn === GM.color; }
+
+function userPlies() {
+  var n = GM.g.moves.length;
+  return GM.color === 'w' ? Math.ceil(n / 2) : Math.floor(n / 2);
+}
+
+function renderPlaySetup() {
+  var g = prog.games, tot = g.w + g.l + g.d;
+  $('stats').textContent = tot ? 'Tus partidas: ' + g.w + ' ganadas, ' + g.d + ' tablas, ' + g.l + ' perdidas.' : '';
+}
+
+function drawGame() {
+  var s = GM.g.s, opp = R.other(GM.color);
+  var moves = (GM.sel >= 0 && canPlay()) ? GM.g.legal().filter(function (m) { return m.from === GM.sel; }) : [];
+  var hf = -1, ht = -1;
+  if (GM.hint) { hf = GM.hint.h.from; if (GM.hint.step >= 2) ht = GM.hint.h.to; }
+  GM.board.draw({
+    s: s, flip: GM.color === 'b', sel: GM.sel, moves: moves, last: GM.last,
+    check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, hf: hf, ht: ht, warn: GM.warn, pop: GM.pop
+  });
+
+  var lost = Coach.lost(s);
+  $('topCaps').textContent = lost[GM.color].map(function (t) { return GLYPH[t]; }).join('');
+  $('botCaps').textContent = lost[opp].map(function (t) { return GLYPH[t]; }).join('');
+  var diff = Coach.material(s);
+  if (GM.color === 'b') diff = -diff;
+  $('topMat').textContent = diff < 0 ? '+' + (-diff) : '';
+  $('botMat').textContent = diff > 0 ? '+' + diff : '';
+
+  var sans = GM.g.sans, html = '';
+  for (var i = 0; i < sans.length; i++) {
+    if (i % 2 === 0) html += '<span class="n">' + (i / 2 + 1) + '.</span>';
+    html += '<span>' + esc(sans[i]) + '</span>';
+  }
+  $('moveList').innerHTML = html || '<span class="n">Aún no hay jugadas</span>';
+  $('moveList').scrollLeft = 99999;
+
+  $('gHint').disabled = !canPlay();
+  $('gUndo').disabled = GM.over || GM.busy || userPlies() === 0;
+  $('gResign').disabled = GM.over;
+}
+
+function setFeed(items, acts) {
+  GM.feed = items;
+  renderFeed(acts);
+}
+function renderFeed(acts) {
+  var items = (GM.notice ? [{ k: 'warn', who: 'Ojo', t: GM.notice }] : []).concat(GM.feed);
+  renderCoach($('gCoach'), items, acts);
+}
+
+function logAdd(items) {
+  var n = Math.ceil(GM.g.moves.length / 2);
+  items.forEach(function (c) {
+    if (c.k === 'info' && !c.sq) return;
+    GM.log.push({ n: n, who: c.who, t: c.t });
+  });
+  var html = '';
+  for (var i = GM.log.length - 1; i >= 0 && i >= GM.log.length - 16; i--) {
+    html += '<li><b>Jugada ' + GM.log[i].n + ' · ' + esc(GM.log[i].who) + ':</b> ' + esc(GM.log[i].t) + '</li>';
+  }
+  $('coachLog').innerHTML = html || '<li>Aún no hay comentarios.</li>';
+}
+
+function startGame() {
+  var color = CFG.color === 'r' ? (Math.random() < 0.5 ? 'w' : 'b') : CFG.color;
+  GM.token++;
+  GM.g = new R.Game();
+  GM.color = color; GM.level = CFG.level; GM.coachOn = $('coachOn').checked;
+  GM.sel = -1; GM.busy = false; GM.pending = false; GM.over = false; GM.last = null; GM.pop = -1;
+  GM.hint = null; GM.hints = 0; GM.feedUser = []; GM.feed = []; GM.notice = null; GM.log = []; GM.warn = null;
+  clearTimeout(GM.resignTimer); GM.resignArm = false; $('gResign').textContent = 'Rendirme';
+  $('think').textContent = '';
+  $('setup').hidden = true; $('game').hidden = false; $('over').hidden = true;
+  $('topWho').textContent = 'Rival · ' + LVN[GM.level];
+  $('coachLog').innerHTML = '<li>Aún no hay comentarios.</li>';
+  $('topSub').textContent = 'Partida · ' + (color === 'w' ? 'blancas' : 'negras');
+  var intro = color === 'w'
+    ? 'Tienes las blancas, así que mueves primero. Toca una pieza para ver sus movimientos. ' + Coach.phaseTip(GM.g.s, 'w')
+    : 'Juegas con las negras: el rival mueve primero. Mira su jugada y responde ocupando el centro.';
+  if (GM.coachOn) setFeed([{ k: 'tip', who: 'Entrenador', t: intro }]);
+  else setFeed([{ k: 'info', who: 'Partida', t: 'Entrenador desactivado. Puedes pedir pistas cuando quieras.' }]);
+  drawGame();
+  window.scrollTo(0, 0);
+  if (color === 'b') aiTurn();
+}
+
+function toSetup() {
+  GM.token++;
+  GM.busy = false; GM.pending = false;
+  $('think').textContent = '';
+  $('game').hidden = true; $('setup').hidden = false;
+  $('topSub').textContent = TABS.play;
+  renderPlaySetup();
+}
+
+function gameTap(i) {
+  if (!canPlay()) return;
+  var s = GM.g.s, p = s.b[i], mine = p && (R.isW(p) === (s.turn === 'w'));
+  var legal = GM.g.legal();
+  if (GM.sel >= 0) {
+    var cands = legal.filter(function (m) { return m.from === GM.sel && m.to === i; });
+    if (cands.length) { chooseMove(cands, GM.board.root.parentNode, gameMove); return; }
+    if (mine) { GM.sel = GM.sel === i ? -1 : i; GM.notice = null; }
+    else GM.notice = whyIllegal(s, GM.sel, i);
+  } else if (mine) {
+    GM.sel = i; GM.notice = null;
+  }
+  renderFeed();
+  drawGame();
+}
+
+function gameMove(m) {
+  var prevS = GM.g.s;
+  GM.g.play(m);
+  var nextS = GM.g.s;
+  GM.sel = -1; GM.last = { from: m.from, to: m.to }; GM.pop = m.to; GM.hint = null; GM.warn = null; GM.notice = null;
+
+  var items = [];
+  if (GM.coachOn) {
+    Coach.review(prevS, m, nextS).forEach(function (c) { items.push({ k: c.k, who: 'Tu jugada', t: c.t, sq: c.sq, undo: c.undo }); });
+    logAdd(items);
+  }
+  GM.feedUser = items;
+  if (checkEnd()) return;
+
+  var urgent = items.filter(function (c) { return c.undo; })[0];
+  if (urgent) {
+    GM.pending = true;
+    GM.warn = [urgent.sq];
+    setFeed(items, [
+      { label: 'Deshacer y pensar otra', primary: true, fn: undoMove },
+      { label: 'Seguir de todos modos', fn: function () { GM.pending = false; GM.warn = null; renderFeed(); drawGame(); aiTurn(); } }
+    ]);
+    drawGame();
+    return;
+  }
+  if (items.length) setFeed(items); else setFeed([{ k: 'info', who: 'Tu jugada', t: GM.g.sans[GM.g.sans.length - 1] }]);
+  drawGame();
+  aiTurn();
+}
+
+function aiTurn() {
+  if (GM.over || !GM.g) return;
+  GM.busy = true;
+  var tok = ++GM.token, t0 = Date.now();
+  $('think').textContent = 'Rival pensando…';
+  drawGame();
+  setTimeout(function () {
+    if (tok !== GM.token) return;
+    var prevS = GM.g.s, m = AI.choose(prevS, GM.level);
+    var wait = Math.max(0, 550 - (Date.now() - t0));
+    setTimeout(function () {
+      if (tok !== GM.token) return;
+      GM.busy = false;
+      $('think').textContent = '';
+      if (!m) { checkEnd(); return; }
+      var san = GM.g.play(m), nextS = GM.g.s;
+      GM.last = { from: m.from, to: m.to }; GM.pop = m.to; GM.sel = -1; GM.warn = null; GM.notice = null;
+      var items = GM.feedUser.slice(), extra = [];
+      if (GM.coachOn) {
+        extra = Coach.afterOpponent(prevS, m, nextS).map(function (c) { return { k: c.k, who: 'Rival · ' + san, t: c.t, sq: c.sq }; });
+        logAdd(extra);
+        if (extra.length && extra[extra.length - 1].k === 'warn' && extra[extra.length - 1].sq !== undefined) GM.warn = [extra[extra.length - 1].sq];
+      }
+      if (!extra.length) extra = [{ k: 'info', who: 'Rival', t: 'Jugó ' + san + '.' }];
+      items = items.concat(extra);
+      if (GM.coachOn && !items.some(function (c) { return c.k === 'warn' || c.k === 'good'; })) {
+        items.push({ k: 'tip', who: 'Consejo', t: Coach.phaseTip(nextS, GM.color) });
+      }
+      GM.feedUser = [];
+      setFeed(items.slice(-3));
+      if (checkEnd()) return;
+      drawGame();
+    }, wait);
+  }, 80);
+}
+
+function undoMove() {
+  if (!GM.g || GM.over || GM.busy || userPlies() === 0) return;
+  GM.token++;
+  GM.pending = false;
+  GM.g.undo();
+  while (GM.g.moves.length && GM.g.s.turn !== GM.color) GM.g.undo();
+  var lm = GM.g.moves[GM.g.moves.length - 1];
+  GM.last = lm ? { from: lm.from, to: lm.to } : null;
+  GM.sel = -1; GM.hint = null; GM.warn = null; GM.notice = null; GM.feedUser = [];
+  $('think').textContent = '';
+  setFeed([{ k: 'tip', who: 'Entrenador', t: 'Jugada deshecha. Antes de mover mira: ¿qué pieza tuya está en peligro y cuál del rival está sin defensa?' }]);
+  drawGame();
+}
+
+function gameHint() {
+  if (!canPlay()) return;
+  if (GM.hint && GM.hint.step === 1) {
+    GM.hint.step = 2;
+    var h = GM.hint.h;
+    setFeed([{ k: 'tip', who: 'Pista 2 de 2', t: h.san + ': ' + h.reason + '.' }]);
+    drawGame();
+    return;
+  }
+  GM.busy = true;
+  var tok = ++GM.token;
+  $('think').textContent = 'Buscando una pista…';
+  drawGame();
+  setTimeout(function () {
+    if (tok !== GM.token) return;
+    var h = Coach.hint(GM.g.s);
+    GM.busy = false;
+    $('think').textContent = '';
+    if (!h) { drawGame(); return; }
+    GM.hints++;
+    GM.hint = { h: h, step: 1 };
+    setFeed([{ k: 'tip', who: 'Pista 1 de 2', t: 'Piensa en mover ' + Coach.art(h.m.piece) + ' de ' + R.sqName(h.from) + '. Pulsa Pista otra vez para ver adónde y por qué.' }]);
+    drawGame();
+  }, 40);
+}
+
+function resignGame() {
+  if (!GM.g || GM.over) return;
+  if (!GM.resignArm) {
+    GM.resignArm = true;
+    $('gResign').textContent = '¿Seguro?';
+    GM.resignTimer = setTimeout(function () { GM.resignArm = false; $('gResign').textContent = 'Rendirme'; }, 3000);
+    return;
+  }
+  clearTimeout(GM.resignTimer);
+  GM.resignArm = false;
+  $('gResign').textContent = 'Rendirme';
+  GM.token++; GM.busy = false; GM.pending = false;
+  $('think').textContent = '';
+  endGame('l', 'Te rendiste', 'Rendirse a tiempo también es una decisión. Revisa los consejos anteriores y prueba la revancha.');
+}
+
+function checkEnd() {
+  var s = GM.g.s, st = R.status(s), rep = GM.g.repetitions() >= 3;
+  if (!st.over && !rep) return false;
+  if (st.result === 'checkmate') {
+    var won = st.winner === GM.color;
+    endGame(won ? 'w' : 'l', won ? 'Jaque mate. ¡Ganaste!' : 'Jaque mate. Esta vez ganó el rival',
+      won ? 'Buen trabajo. Mira los consejos anteriores para repasar qué decisiones te dieron ventaja.'
+        : 'Una partida perdida enseña mucho. Repasa los consejos anteriores, mira qué pieza se quedó sin defensa y prueba la revancha.');
+  } else if (st.result === 'stalemate') {
+    endGame('d', 'Tablas por ahogado', 'El bando que movía no tenía jugadas y no estaba en jaque. Cuando vayas ganando, comprueba que el rival tenga alguna jugada.');
+  } else if (st.result === 'insufficient') {
+    endGame('d', 'Tablas', 'No queda material suficiente para dar jaque mate.');
+  } else if (st.result === 'fifty') {
+    endGame('d', 'Tablas', 'Pasaron 50 jugadas sin capturas ni movimientos de peón.');
+  } else {
+    endGame('d', 'Tablas por repetición', 'La misma posición apareció tres veces.');
+  }
+  return true;
+}
+
+function endGame(outcome, title, blurb) {
+  GM.over = true; GM.busy = false; GM.pending = false; GM.hint = null; GM.sel = -1;
+  prog.games[outcome]++;
+  saveProg();
+  var s = GM.g.s, lost = Coach.lost(s), opp = R.other(GM.color);
+  var html = '<h3>' + esc(title) + '</h3><p>' + esc(blurb) + '</p><div class="stats"><span>' + Math.ceil(GM.g.moves.length / 2) + ' jugadas</span><span>capturaste ' +
+    lost[opp].length + '</span><span>perdiste ' + lost[GM.color].length + '</span><span>' + GM.hints + ' pistas</span></div>' +
+    '<div class="actions"><button class="btn primary" type="button" id="ovAgain">Revancha</button><button class="btn" type="button" id="ovNew">Cambiar ajustes</button></div>';
+  var ov = $('over');
+  ov.innerHTML = html;
+  ov.hidden = false;
+  $('ovAgain').addEventListener('click', startGame);
+  $('ovNew').addEventListener('click', toSetup);
+  var kind = outcome === 'w' ? 'good' : outcome === 'l' ? 'bad' : 'info';
+  GM.feed = [{ k: kind, who: 'Fin de la partida', t: title + '.' }];
+  renderFeed();
+  drawGame();
+}
+
+/* ---------- Navegación e inicio ---------- */
+function showTab(t) {
+  var views = ['v-learn', 'v-lesson', 'v-play', 'v-guide'], i;
+  for (i = 0; i < views.length; i++) $(views[i]).hidden = true;
+  var target = t === 'learn' ? (LS.active ? 'v-lesson' : 'v-learn') : 'v-' + t;
+  $(target).hidden = false;
+  var btns = $('tabs').querySelectorAll('button');
+  for (i = 0; i < btns.length; i++) btns[i].classList.toggle('on', btns[i].dataset.tab === t);
+
+  if (t === 'learn') {
+    if (LS.active) {
+      var ls = currentLesson();
+      $('topSub').textContent = 'Nivel ' + ls.lvl + ' · ' + levelOf(ls.lvl).name;
+    } else {
+      renderLearn();
+      $('topSub').textContent = TABS.learn;
+    }
+  } else if (t === 'play') {
+    if ($('game').hidden) { renderPlaySetup(); $('topSub').textContent = TABS.play; }
+    else $('topSub').textContent = 'Partida · ' + (GM.color === 'w' ? 'blancas' : 'negras');
+  } else {
+    $('topSub').textContent = TABS.guide;
+  }
+  window.scrollTo(0, 0);
+}
+
+function mark(root, on) {
+  var bs = root.querySelectorAll('button');
+  for (var i = 0; i < bs.length; i++) bs[i].classList.toggle('on', bs[i] === on);
+}
+
+function init() {
+  LS.board = makeBoard($('lsBoard'));
+  LS.board.onTap = lessonTap;
+  GM.board = makeBoard($('gBoard'));
+  GM.board.onTap = gameTap;
+
+  $('levels').addEventListener('click', function (e) {
+    var t = up(e.target, 'id', $('levels'));
+    if (t) openLesson(t.dataset.id);
+  });
+  $('contCard').addEventListener('click', function (e) {
+    var t = up(e.target, 'id', $('contCard'));
+    if (t) { openLesson(t.dataset.id); return; }
+    var g = up(e.target, 'go', $('contCard'));
+    if (g) showTab(g.dataset.go);
+  });
+  $('lsBack').addEventListener('click', leaveLesson);
+  $('lsHint').addEventListener('click', lessonHint);
+  $('lsReset').addEventListener('click', loadLesson);
+  $('lsNext').addEventListener('click', lessonNext);
+
+  $('tabs').addEventListener('click', function (e) {
+    var t = up(e.target, 'tab', $('tabs'));
+    if (t) showTab(t.dataset.tab);
+  });
+
+  $('segColor').addEventListener('click', function (e) {
+    var t = up(e.target, 'v', $('segColor'));
+    if (!t) return;
+    CFG.color = t.dataset.v;
+    mark($('segColor'), t);
+  });
+  $('segLevel').addEventListener('click', function (e) {
+    var t = up(e.target, 'v', $('segLevel'));
+    if (!t) return;
+    CFG.level = +t.dataset.v;
+    mark($('segLevel'), t);
+  });
+  $('startGame').addEventListener('click', startGame);
+  $('gHint').addEventListener('click', gameHint);
+  $('gUndo').addEventListener('click', undoMove);
+  $('gResign').addEventListener('click', resignGame);
+
+  renderLearn();
+  showTab('learn');
+}
+
+init();
+
+})();
+
+</script>
+
+</body></html>
