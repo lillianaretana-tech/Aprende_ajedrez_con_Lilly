@@ -255,6 +255,7 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
     <section id="v-learn" class="view">
       <div class="card cont" id="contCard"></div>
       <div id="levels" class="view"></div>
+      <div id="endList" class="view"></div>
       <div class="tipcard" id="tipCard"></div>
     </section>
 
@@ -271,6 +272,22 @@ code.k { font-family: var(--mono); background: var(--surface2); border-radius: 6
         <button class="btn" id="lsHint" type="button">Pista</button>
         <button class="btn" id="lsReset" type="button">Reiniciar</button>
         <button class="btn primary" id="lsNext" type="button" hidden>Siguiente</button>
+      </div>
+    </section>
+
+    <!-- Final -->
+    <section id="v-ending" class="view" hidden>
+      <div class="head">
+        <button class="btn ghost" id="egBack" type="button">&larr; Finales</button>
+        <span class="step" id="egStep"></span>
+      </div>
+      <h2 id="egTitle"></h2>
+      <div class="board-wrap"><div id="egBoard"></div></div>
+      <div class="coach" id="egCoach" aria-live="polite"></div>
+      <div class="actions">
+        <button class="btn" id="egHint" type="button">Pista</button>
+        <button class="btn" id="egReset" type="button">Reiniciar</button>
+        <button class="btn primary" id="egNext" type="button" hidden>Siguiente final</button>
       </div>
     </section>
 
@@ -1030,7 +1047,28 @@ var AI = (function (R) {
       }
       sc += (w ? 1 : -1) * (VAL[t] + pos);
     }
-    return sc;
+    return sc + mopUp(s);
+  }
+
+  // Final de rey solo contra material mayor: empujar al rey débil al borde y acercar el rey fuerte.
+  function mopUp(s) {
+    var b = s.b, mat = { w: 0, b: 0 }, cnt = { w: 0, b: 0 }, ks = {}, i, p;
+    for (i = 0; i < 64; i++) {
+      p = b[i];
+      if (!p) continue;
+      var c = R.isW(p) ? 'w' : 'b', t = p.toLowerCase();
+      if (t === 'k') { ks[c] = i; continue; }
+      cnt[c]++; mat[c] += VAL[t];
+    }
+    var strong = null;
+    if (cnt.b === 0 && mat.w >= 500) strong = 'w';
+    else if (cnt.w === 0 && mat.b >= 500) strong = 'b';
+    if (!strong) return 0;
+    var weak = strong === 'w' ? 'b' : 'w', wk = ks[weak], sk = ks[strong];
+    var cen = (3.5 - Math.abs((wk & 7) - 3.5)) + (3.5 - Math.abs((wk >> 3) - 3.5));
+    var dist = Math.abs((wk & 7) - (sk & 7)) + Math.abs((wk >> 3) - (sk >> 3));
+    var bonus = (7 - cen) * 22 + (14 - dist) * 8;
+    return strong === 'w' ? bonus : -bonus;
   }
   function evalSTM(s) { var v = evalWhite(s); return s.turn === 'w' ? v : -v; }
 
@@ -1459,6 +1497,29 @@ var Puzzles = (function () {
 })();
 if (typeof module !== 'undefined') module.exports = Puzzles;
 
+var Endgames = (function () {
+  var LIST = [
+    { id: 'dama', title: 'Rey y dama contra rey', fen: '8/8/8/4k3/8/8/8/3QK3 w - - 0 1', goal: 'mate', cap: 25,
+      intro: 'Tienes dama y rey contra rey solo. Da jaque mate. Cuidado: si dejas al rey rival sin movimientos y sin jaque, es ahogado y son tablas.',
+      tips: ['Usa la dama para encerrar al rey rival: una casilla de distancia, como un caballo, lo deja sin salida sin acorralarlo del todo.', 'Cuando el rey rival esté en el borde, acerca tu rey. La dama sola no da mate.', 'Antes de cada jugada pregúntate: ¿al rival le quedará alguna jugada legal? Si no la tiene y no es jaque, es ahogado.'],
+      ok: 'Mate. La técnica: encerrar con la dama, acercar el rey y dar mate en el borde, siempre vigilando el ahogado.' },
+    { id: 'torre', title: 'Rey y torre contra rey', fen: '8/8/8/4k3/8/8/8/R3K3 w - - 0 1', goal: 'mate', cap: 40,
+      intro: 'Con torre y rey se gana, pero cuesta más que con la dama. Empuja al rey rival hacia un borde y da mate allí.',
+      tips: ['La torre corta al rey rival por filas o columnas: no lo dejes cruzar esa línea.', 'Cuando el rey rival esté en el borde, avanza tu rey hasta quedar frente a él, con una casilla de por medio (oposición). Entonces la torre da el jaque.', 'Mantén la torre a distancia para que el rey rival no pueda capturarla.'],
+      ok: 'Mate. Torre para cortar, rey para empujar y jaque en el borde cuando los reyes se enfrentan.' },
+    { id: 'torres', title: 'Dos torres: mate de escalera', fen: '8/8/8/4k3/8/8/1R6/R3K3 w - - 0 1', goal: 'mate', cap: 15,
+      intro: 'Con dos torres no necesitas al rey: una torre corta y la otra da jaque, y van empujando al rey rival fila por fila como una escalera.',
+      tips: ['Pon una torre en una fila para cortar al rey y da jaque con la otra en la fila siguiente.', 'Repite el movimiento: las torres suben por turnos, siempre en filas contiguas.', 'Que ninguna torre quede al alcance del rey rival.'],
+      ok: 'Mate de escalera. Es la forma más rápida de ganar con dos piezas mayores.' },
+    { id: 'peon6', title: 'Peón y rey: coronar', fen: '4k3/8/4K3/4P3/8/8/8/8 w - - 0 1', goal: 'promote', cap: 14,
+      intro: 'Tu rey va delante del peón y en la sexta fila: es una posición ganadora. Corona el peón en dama.',
+      tips: ['El rey debe ir delante del peón, no detrás.', 'Si el rey rival se pone enfrente, mueve tu rey para quitarle las casillas y avanza el peón solo cuando sea seguro.', 'No dejes al rival sin movimientos: recuerda el ahogado.'],
+      ok: 'Peón coronado. Con el rey por delante del peón y en la sexta fila, el final está ganado.' }
+  ];
+  return { LIST: LIST };
+})();
+if (typeof module !== 'undefined') module.exports = Endgames;
+
 (function () {
 "use strict";
 /* ---------- Utilidades de interfaz ---------- */
@@ -1491,7 +1552,7 @@ try {
     if (!prog.games) prog.games = { w: 0, l: 0, d: 0 };
   }
 } catch (e) { /* sin almacenamiento: la app sigue funcionando */ }
-prog.pz = prog.pz || {}; prog.pts = prog.pts || 0; prog.mine = prog.mine || []; prog.streak = prog.streak || { n: 0, last: '' };
+prog.end = prog.end || {}; prog.pz = prog.pz || {}; prog.pts = prog.pts || 0; prog.mine = prog.mine || []; prog.streak = prog.streak || { n: 0, last: '' };
 function saveProg() { try { localStorage.setItem(KEY, JSON.stringify(prog)); } catch (e) { /* ignorar */ } }
 
 /* ---------- Tablero ---------- */
@@ -1662,6 +1723,7 @@ function renderLearn() {
   });
   $('levels').innerHTML = html;
 
+  renderEndList();
   var tip = TIPS[Math.floor(Date.now() / 864e5) % TIPS.length];
   $('tipCard').innerHTML = '<span aria-hidden="true">♞</span><div><b>Consejo del día</b><br>' + esc(tip) + '</div>';
 }
@@ -2437,6 +2499,151 @@ function leavePuzzle() {
   else { renderTact(); showTab('tact'); }
 }
 
+/* ---------- Finales: practicar técnica contra un rival que defiende bien ---------- */
+var EG = { active: false, idx: 0, g: null, sel: -1, locked: false, state: 'play', hintStep: 0, hintM: null, last: null, pop: -1, notice: null, token: 0, board: null, n: 0 };
+
+function curEnding() { return Endgames.LIST[EG.idx]; }
+function endDoneCount() { return Endgames.LIST.filter(function (e) { return prog.end[e.id]; }).length; }
+
+function renderEndList() {
+  var nx = -1, html = '';
+  Endgames.LIST.forEach(function (e, i) { if (nx < 0 && !prog.end[e.id]) nx = i; });
+  html = '<div class="level"><div class="level-h"><h3>Nivel 5 · Finales</h3><span class="n">' + endDoneCount() + '/' + Endgames.LIST.length + '</span></div>' +
+    '<p class="level-sub">Técnica para ganar posiciones simples. El rival se defiende lo mejor que puede.</p>';
+  Endgames.LIST.forEach(function (e, i) {
+    var d = !!prog.end[e.id];
+    html += '<button type="button" class="lrow' + (d ? ' done' : '') + (i === nx ? ' next' : '') + '" data-end="' + e.id + '"><span class="dot">' + (d ? '✓' : (i + 1)) + '</span>' +
+      '<span class="t">' + esc(e.title) + '</span><span class="go" aria-hidden="true">›</span></button>';
+  });
+  html += '</div>';
+  $('endList').innerHTML = html;
+}
+
+function openEnding(id) {
+  for (var i = 0; i < Endgames.LIST.length; i++) if (Endgames.LIST[i].id === id) EG.idx = i;
+  EG.active = true;
+  showTab('learn');
+  loadEnding();
+}
+
+function loadEnding() {
+  var e = curEnding();
+  EG.token++;
+  EG.g = new R.Game(e.fen);
+  EG.sel = -1; EG.locked = false; EG.state = 'play'; EG.hintStep = 0; EG.hintM = null; EG.last = null; EG.pop = -1; EG.notice = null; EG.n = 0;
+  $('egTitle').textContent = e.title;
+  $('egNext').hidden = true; $('egHint').disabled = false;
+  $('topSub').textContent = 'Nivel 5 · Finales';
+  drawEnding();
+  egCoach([{ k: 'tip', who: 'Objetivo', t: e.intro }, { k: 'info', who: 'Consejo', t: e.tips[0] }]);
+  window.scrollTo(0, 0);
+}
+
+function egCoach(items) { renderCoach($('egCoach'), items); }
+
+function drawEnding() {
+  var e = curEnding(), s = EG.g.s;
+  var moves = (EG.sel >= 0 && EG.state === 'play' && !EG.locked) ? EG.g.legal().filter(function (m) { return m.from === EG.sel; }) : [];
+  var hf = -1, ht = -1;
+  if (EG.hintStep >= 1 && EG.hintM && EG.state === 'play' && !EG.locked) { hf = EG.hintM.from; if (EG.hintStep >= 2) ht = EG.hintM.to; }
+  EG.board.draw({
+    s: s, flip: false, sel: EG.sel, moves: moves, last: EG.last,
+    check: R.inCheck(s, s.turn) ? R.kingSq(s, s.turn) : -1, hf: hf, ht: ht, pop: EG.pop
+  });
+  $('egStep').textContent = 'Jugada ' + Math.min(EG.n + (EG.state === 'play' ? 1 : 0), e.cap) + ' de ' + e.cap;
+}
+
+function endTap(i) {
+  if (EG.locked || EG.state !== 'play') return;
+  var s = EG.g.s, p = s.b[i], mine = p && (R.isW(p) === (s.turn === 'w'));
+  var legal = EG.g.legal();
+  if (EG.sel >= 0) {
+    var cands = legal.filter(function (m) { return m.from === EG.sel && m.to === i; });
+    if (cands.length) { chooseMove(cands, EG.board.root.parentNode, endMove); return; }
+    if (mine) { EG.sel = EG.sel === i ? -1 : i; EG.notice = null; }
+    else EG.notice = whyIllegal(s, EG.sel, i);
+  } else if (mine) { EG.sel = i; EG.notice = null; }
+  drawEnding();
+  var e = curEnding(), items = [];
+  if (EG.notice) items.push({ k: 'warn', who: 'Ojo', t: EG.notice });
+  items.push({ k: 'tip', who: 'Objetivo', t: e.intro });
+  egCoach(items);
+}
+
+function endMove(m) {
+  var e = curEnding(), s = EG.g.s, child = R.makeMove(s, m), oppLegal = R.genLegal(child), st = R.status(child);
+  EG.sel = -1;
+  if (st.result === 'stalemate') {
+    EG.notice = 'Esa jugada deja al rey rival sin movimientos y sin estar en jaque: es ahogado y la partida terminaría en tablas. Elige otra.';
+  } else if (st.result !== 'checkmate' && !m.promo && oppLegal.some(function (c) { return c.captured && c.captured.toLowerCase() !== 'k'; })) {
+    EG.notice = 'Con esa jugada el rey rival podría capturar tu pieza sin que puedas recuperarla. Protégela o ponla fuera de su alcance.';
+  }
+  if (EG.notice && st.result !== 'checkmate') {
+    drawEnding();
+    egCoach([{ k: 'warn', who: 'Ojo', t: EG.notice }, { k: 'tip', who: 'Objetivo', t: e.intro }]);
+    return;
+  }
+  EG.notice = null;
+  EG.g.play(m);
+  EG.last = { from: m.from, to: m.to }; EG.pop = m.to; EG.n++; EG.hintStep = 0; EG.hintM = null;
+  if (e.goal === 'mate' && st.result === 'checkmate') { endWin(); return; }
+  if (e.goal === 'promote' && m.promo) { endWin(); return; }
+  if (st.over) { endFail('La partida terminó en tablas. ' + (st.result === 'stalemate' ? 'Fue ahogado.' : '')); return; }
+  if (EG.n >= e.cap) { endFail('Se acabaron las ' + e.cap + ' jugadas. Con la técnica correcta se llega antes: prueba de nuevo y usa las pistas.'); return; }
+  EG.locked = true;
+  drawEnding();
+  var tk = EG.token;
+  setTimeout(function () {
+    if (tk !== EG.token) return;
+    var d = AI.rootSearch(EG.g.s, 4, 500, 0)[0].m;
+    EG.g.play(d);
+    EG.last = { from: d.from, to: d.to }; EG.pop = d.to; EG.locked = false;
+    var st2 = R.status(EG.g.s);
+    if (st2.over) { endFail('La partida terminó en tablas.'); return; }
+    drawEnding();
+    egCoach([{ k: 'tip', who: 'Consejo', t: e.tips[EG.n % e.tips.length] }]);
+  }, 520);
+}
+
+function endWin() {
+  var e = curEnding();
+  EG.state = 'solved'; EG.locked = false;
+  prog.end[e.id] = true; saveProg();
+  drawEnding();
+  var last = EG.g.sans.length;
+  egCoach([{ k: 'good', who: 'Conseguido', t: e.ok + ' Lo lograste en ' + EG.n + ' jugadas.' }]);
+  var more = Endgames.LIST.some(function (x, i) { return i > EG.idx; });
+  $('egNext').textContent = more ? 'Siguiente final' : 'Terminar';
+  $('egNext').hidden = false; $('egHint').disabled = true;
+}
+function endFail(msg) {
+  EG.state = 'failed'; EG.locked = false;
+  drawEnding();
+  egCoach([{ k: 'bad', who: 'Inténtalo otra vez', t: msg }]);
+  $('egHint').disabled = true;
+}
+
+function endHint() {
+  if (EG.state !== 'play' || EG.locked) return;
+  if (!EG.hintM) {
+    egCoach([{ k: 'info', who: 'Pista', t: 'Pensando…' }]);
+    var r = AI.rootSearch(EG.g.s, 6, 1500, 0);
+    EG.hintM = r[0].m;
+  }
+  EG.hintStep = Math.min(2, EG.hintStep + 1);
+  drawEnding();
+  egCoach([{ k: 'tip', who: 'Pista ' + EG.hintStep + ' de 2', t: EG.hintStep === 1 ? 'Mira la pieza resaltada: esa es la que conviene mover.' : 'Va a la casilla resaltada.' }, { k: 'info', who: 'Consejo', t: curEnding().tips[EG.n % curEnding().tips.length] }]);
+}
+
+function endNext() {
+  if (EG.idx + 1 < Endgames.LIST.length) { EG.idx++; loadEnding(); }
+  else leaveEnding();
+}
+function leaveEnding() {
+  EG.active = false; EG.token++;
+  showTab('learn');
+}
+
 /* ---------- Revisión de la partida ---------- */
 var CLS_LABEL = { blunder: 'Error grave', mistake: 'Error', inacc: 'Imprecisión', good: 'Buena jugada' };
 var RV = { active: false, snap: null, token: 0, done: false, total: 0, at: 0, res: null };
@@ -2584,10 +2791,10 @@ function leaveReview() {
 
 /* ---------- Navegación e inicio ---------- */
 function showTab(t) {
-  var views = ['v-learn', 'v-lesson', 'v-tact', 'v-puzzle', 'v-review', 'v-play', 'v-guide'], i;
+  var views = ['v-learn', 'v-lesson', 'v-ending', 'v-tact', 'v-puzzle', 'v-review', 'v-play', 'v-guide'], i;
   for (i = 0; i < views.length; i++) $(views[i]).hidden = true;
   var target;
-  if (t === 'learn') target = LS.active ? 'v-lesson' : 'v-learn';
+  if (t === 'learn') target = LS.active ? 'v-lesson' : EG.active ? 'v-ending' : 'v-learn';
   else if (t === 'tact') target = (PZ.active && PZ.tab === 'tact') ? 'v-puzzle' : 'v-tact';
   else if (t === 'play') target = (PZ.active && PZ.tab === 'play') ? 'v-puzzle' : RV.active ? 'v-review' : 'v-play';
   else target = 'v-' + t;
@@ -2596,7 +2803,8 @@ function showTab(t) {
   for (i = 0; i < btns.length; i++) btns[i].classList.toggle('on', btns[i].dataset.tab === t);
 
   if (t === 'learn') {
-    if (LS.active) {
+    if (target === 'v-ending') $('topSub').textContent = 'Nivel 5 · Finales';
+    else if (LS.active) {
       var ls = currentLesson();
       $('topSub').textContent = 'Nivel ' + ls.lvl + ' · ' + levelOf(ls.lvl).name;
     } else {
@@ -2637,6 +2845,16 @@ function init() {
     if (t) { openLesson(t.dataset.id); return; }
     var g = up(e.target, 'go', $('contCard'));
     if (g) showTab(g.dataset.go);
+  });
+  EG.board = makeBoard($('egBoard'));
+  EG.board.onTap = endTap;
+  $('egBack').addEventListener('click', leaveEnding);
+  $('egHint').addEventListener('click', endHint);
+  $('egReset').addEventListener('click', loadEnding);
+  $('egNext').addEventListener('click', endNext);
+  $('endList').addEventListener('click', function (e) {
+    var t = up(e.target, 'end', $('endList'));
+    if (t) openEnding(t.dataset.end);
   });
   PZ.board = makeBoard($('pzBoard'));
   PZ.board.onTap = puzzleTap;
